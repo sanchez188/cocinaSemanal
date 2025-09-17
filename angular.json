@@ -27,7 +27,7 @@
             }
           },
           "options": {
-            "assets": [],
+            "assets": ["src/assets", "src/manifest.json"],
             "index": "src/index.html",
             "browser": "src/main.ts",
             "outputPath": "dist/",

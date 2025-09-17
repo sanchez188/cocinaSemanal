@@ -138,6 +138,7 @@ export class WeeklyMenuComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    await this.menuService.loadCurrentWeekMenu?.();
     const menu = this.menuService.currentMenu();
     this.currentMenu.set(menu);
     if (menu) {

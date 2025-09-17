@@ -77,7 +77,7 @@ export class MenuService {
     };
   }
 
-  private async loadCurrentWeekMenu(): Promise<void> {
+  async loadCurrentWeekMenu(): Promise<void> {
     const currentWeek = this.getCurrentWeek();
     let menu = await this.weeklyMenuService.getMenu(`menu-${currentWeek}`);
     if (!menu) {
