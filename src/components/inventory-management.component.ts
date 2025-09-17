@@ -303,7 +303,7 @@ export class InventoryManagementComponent implements OnInit {
     const ingredient: Ingredient = {
       id: this.editingIngredient()
         ? this.editingIngredient()!.id
-        : `ingredient-${Date.now()}`,
+        : crypto.randomUUID(),
       name: this.ingredientForm.name.trim(),
       quantity: this.ingredientForm.quantity,
       unit: this.ingredientForm.unit,
