@@ -1,4 +1,5 @@
 import { Component, OnInit } from "@angular/core";
+import { signal } from "@angular/core";
 import { Subject } from "rxjs";
 import { PredefinedMenuService } from "../services/predefined-menu.service";
 import { WeeklyMenuService } from "../services/weekly-menu.service";
@@ -23,22 +24,17 @@ interface PredefinedMenuWeek {
   imports: [CommonModule, FormsModule],
   template: `
     <div class="p-6">
-      <div class="flex justify-between items-center mb-6">
-        <div>
-          <h2 class="text-2xl font-bold text-gray-800">Menús Semanales Predefinidos</h2>
-          <p class="text-gray-600">Crea y gestiona plantillas de menús reutilizables</p>
-        </div>
+      <h2 class="text-2xl font-bold mb-4">Menús Semanales Predefinidos</h2>
+      <div class="mb-6">
         <button
           (click)="showAddForm.set(!showAddForm())"
-          class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+          class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
         >
           {{ showAddForm() ? "Cancelar" : "+ Nuevo Menú Predefinido" }}
         </button>
       </div>
-      <div
-        *ngIf="showAddForm"
-        class="mb-6 bg-white rounded-lg shadow-sm border p-6"
-      >
+      @if (showAddForm()) {
+      <div class="mb-6 bg-white rounded-lg shadow-sm border p-6">
         <h3 class="text-lg font-semibold mb-4">
           {{
             editingMenu ? "Editar Menú Predefinido" : "Nuevo Menú Predefinido"
@@ -58,64 +54,48 @@ interface PredefinedMenuWeek {
             <div>
               <label class="block text-sm mb-1">{{ type | titlecase }}</label>
               <select
-                [(ngModel)]="newMenuDays[day][type]"
+                [(ngModel)]="newMenuDays()[day][type]"
                 class="w-full px-3 py-2 border rounded"
               >
                 <option [ngValue]="undefined">-- Sin platillo --</option>
                 @for (dish of dishesFilteredByType(type); track dish.id) {
                 <option [ngValue]="dish.id">{{ dish.name }}</option>
                 }
-              </div>
+              </select>
             </div>
-          }
-
-          <div class="flex space-x-3">
-            <button
-              (click)="saveNewMenu()"
-              [disabled]="!newMenuName.trim()"
-              class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Guardar Menú
-            </button>
-            <button
-              (click)="cancelForm()"
-              class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-            >
-              Cancelar
-            </button>
+            }
           </div>
         </div>
-      }
-
-      <!-- Predefined Menus List -->
-      <div class="space-y-4">
-        @if (predefinedMenus().length === 0) {
-          <div class="text-center py-12">
-            <div class="text-gray-400 text-6xl mb-4">📋</div>
-            <h3 class="text-xl font-semibold text-gray-700 mb-2">
-              No hay menús predefinidos
-            </h3>
-            <p class="text-gray-500">Crea tu primer menú predefinido para reutilizarlo</p>
-          </div>
         }
-        <button
-          (click)="editingMenu ? saveEditMenu() : saveNewMenu()"
-          class="mt-4 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-        >
-          {{ editingMenu ? "Guardar Cambios" : "Guardar Menú" }}
-        </button>
-        <button
-          *ngIf="editingMenu"
-          (click)="cancelEdit()"
-          class="mt-4 ml-2 px-4 py-2 bg-gray-400 text-white rounded-lg hover:bg-gray-500"
-        >
-          Cancelar
-        </button>
+        <div class="flex gap-2 mt-4">
+          <button
+            (click)="editingMenu ? saveEditMenu() : saveNewMenu()"
+            [disabled]="!newMenuName.trim()"
+            class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ editingMenu ? "Guardar Cambios" : "Guardar Menú" }}
+          </button>
+          <button
+            (click)="cancelForm()"
+            class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+          >
+            Cancelar
+          </button>
+        </div>
       </div>
-      <div
-        *ngFor="let menu of predefinedMenus"
-        class="mb-4 p-4 border rounded-lg bg-gray-50"
-      >
+      } @if (predefinedMenus().length === 0) {
+      <div class="text-center py-12">
+        <div class="text-gray-400 text-6xl mb-4">📋</div>
+        <h3 class="text-xl font-semibold text-gray-700 mb-2">
+          No hay menús predefinidos
+        </h3>
+        <p class="text-gray-500">
+          Crea tu primer menú predefinido para reutilizarlo
+        </p>
+      </div>
+      } @for (menu of predefinedMenus(); track menu.id) { @if (!editingMenu ||
+      editingMenu.id !== menu.id) {
+      <div class="mb-4 p-4 border rounded-lg bg-gray-50">
         <div class="flex justify-between items-center mb-2">
           <span class="font-semibold">{{ menu.name }}</span>
           <div>
@@ -138,24 +118,75 @@ interface PredefinedMenuWeek {
               Eliminar
             </button>
           </div>
-        }
+        </div>
+        <div class="grid grid-cols-2 gap-2 mt-2">
+          @for (day of daysOfWeek; track day) {
+          <div>
+            <span class="font-medium">{{ day }}:</span>
+            <span>
+              @for (dish of menu.days[day]; track dish.id) {
+              {{ dish.name
+              }}<span *ngIf="dish.category"> ({{ dish.category }})</span
+              ><span *ngIf="!isLastDish(menu.days[day], dish)">, </span>
+              }
+            </span>
+          </div>
+          }
+        </div>
       </div>
+      } }
     </div>
   `,
 })
 export class MenusPredefinidosComponent implements OnInit {
-  editingMenu: PredefinedMenuWeek | null = null;
-  editMenu(menu: PredefinedMenuWeek) {
-    this.editingMenu = menu;
-    this.showAddForm = true;
-    this.newMenuName = menu.name;
+  isLastDish(dishes: Dish[], dish: Dish): boolean {
+    return dishes[dishes.length - 1]?.id === dish.id;
+  }
+  dishesFilteredByType(type: string): Dish[] {
+    return this.dishes().filter((d: Dish) => d.category === type);
+  }
+
+  cancelForm() {
+    this.editingMenu = null;
+    this.showAddForm.set(false);
+    this.newMenuName = "";
+    // Reiniciar estructura para selects
+    const daysObjReset: {
+      [day: string]: { [type: string]: string | undefined };
+    } = {};
     for (const day of this.daysOfWeek) {
-      this.newMenuDays[day] = {};
+      daysObjReset[day] = {};
       for (const type of this.mealTypes) {
-        const dish = menu.days[day]?.find((d) => d.category === type);
-        this.newMenuDays[day][type] = dish ? dish.id : undefined;
+        daysObjReset[day][type] = undefined;
       }
     }
+    this.newMenuDays.set(daysObjReset);
+  }
+  editingMenu: PredefinedMenuWeek | null = null;
+  predefinedMenus = signal<PredefinedMenuWeek[]>([]);
+  dishes = signal<Dish[]>([]);
+  showAddForm = signal(false);
+  newMenuName = "";
+  newMenuDays = signal<{
+    [day: string]: { [type: string]: string | undefined };
+  }>({});
+  mealTypes = ["desayuno", "almuerzo", "cafe", "cena"];
+  daysOfWeek = DAYS_OF_WEEK;
+
+  editMenu(menu: PredefinedMenuWeek) {
+    this.editingMenu = menu;
+    this.showAddForm.set(true);
+    this.newMenuName = menu.name;
+    const daysObj: { [day: string]: { [type: string]: string | undefined } } =
+      {};
+    for (const day of this.daysOfWeek) {
+      daysObj[day] = {};
+      for (const type of this.mealTypes) {
+        const dish = menu.days[day]?.find((d) => d.category === type);
+        daysObj[day][type] = dish ? dish.id : undefined;
+      }
+    }
+    this.newMenuDays.set(daysObj);
   }
 
   async saveEditMenu() {
@@ -166,12 +197,13 @@ export class MenusPredefinidosComponent implements OnInit {
       name: this.newMenuName.trim(),
       days: {},
     };
+    const daysObj = this.newMenuDays();
     for (const day of this.daysOfWeek) {
       menu.days[day] = [];
       for (const type of this.mealTypes) {
-        const dishId = this.newMenuDays[day][type];
+        const dishId = daysObj[day][type];
         if (dishId) {
-          const dish = this.dishes.find((d) => d.id === dishId);
+          const dish = this.dishes().find((d) => d.id === dishId);
           if (dish) {
             await this.dishesService.addDish(dish);
             menu.days[day].push({
@@ -183,18 +215,18 @@ export class MenusPredefinidosComponent implements OnInit {
       }
     }
     await this.predefinedMenuService.saveMenu(menu);
-    this.predefinedMenus = await this.predefinedMenuService.getAllMenus();
-    this.showAddForm = false;
+    this.predefinedMenus.set(await this.predefinedMenuService.getAllMenus());
+    this.showAddForm.set(false);
     this.editingMenu = null;
     this.newMenuName = "";
-    this.newMenuDays = {};
+    this.newMenuDays.set({});
   }
 
   cancelEdit() {
     this.editingMenu = null;
-    this.showAddForm = false;
+    this.showAddForm.set(false);
     this.newMenuName = "";
-    this.newMenuDays = {};
+    this.newMenuDays.set({});
   }
   constructor(
     private predefinedMenuService: PredefinedMenuService,
@@ -202,47 +234,21 @@ export class MenusPredefinidosComponent implements OnInit {
     private menuService: MenuService,
     private dishesService: DishesService
   ) {}
-  predefinedMenus: PredefinedMenuWeek[] = [];
-  showAddForm = false;
-  newMenuName = "";
-  newMenuDays: { [day: string]: { [type: string]: string | undefined } } = {};
-  mealTypes = ["desayuno", "almuerzo", "cena", "cafe"];
-  daysOfWeek = DAYS_OF_WEEK;
-  dishes: Dish[] = [];
-
-  predefinedMenus = signal<PredefinedMenu[]>([]);
-  dishes = signal<Dish[]>([]);
-  showAddForm = signal(false);
-  newMenuName = "";
-  newMenuDays = signal<{ [day: string]: { [type: string]: string | undefined } }>({});
-
-  mealTypes = ["desayuno", "almuerzo", "cafe", "cena"];
-  daysOfWeek = [
-    "lunes",
-    "martes",
-    "miercoles",
-    "jueves",
-    "viernes",
-    "sabado",
-    "domingo",
-  ];
 
   async ngOnInit() {
     await this.migrateLocalStorageMenus();
-    this.predefinedMenus = await this.predefinedMenuService.getAllMenus();
-    // Usar signal para los platillos
-    this.dishes = this.dishesService.dishes();
+    this.predefinedMenus.set(await this.predefinedMenuService.getAllMenus());
+    this.dishes.set(await this.dishesService.getDishes());
     // Inicializar estructura para los selects
+    const daysObj: { [day: string]: { [type: string]: string | undefined } } =
+      {};
     for (const day of this.daysOfWeek) {
-      if (!this.newMenuDays[day]) {
-        this.newMenuDays[day] = {};
-      }
+      daysObj[day] = {};
       for (const type of this.mealTypes) {
-        if (!this.newMenuDays[day][type]) {
-          this.newMenuDays[day][type] = undefined;
-        }
+        daysObj[day][type] = undefined;
       }
     }
+    this.newMenuDays.set(daysObj);
   }
 
   async migrateLocalStorageMenus() {
@@ -257,7 +263,7 @@ export class MenusPredefinidosComponent implements OnInit {
   }
 
   async loadMenus() {
-    this.predefinedMenus = await this.predefinedMenuService.getAllMenus();
+    this.predefinedMenus.set(await this.predefinedMenuService.getAllMenus());
   }
 
   async saveNewMenu() {
@@ -267,14 +273,14 @@ export class MenusPredefinidosComponent implements OnInit {
       name: this.newMenuName.trim(),
       days: {},
     };
+    const daysObj = this.newMenuDays();
     for (const day of this.daysOfWeek) {
       menu.days[day] = [];
       for (const type of this.mealTypes) {
-        const dishId = this.newMenuDays[day][type];
+        const dishId = daysObj[day][type];
         if (dishId) {
-          const dish = this.dishes.find((d) => d.id === dishId);
+          const dish = this.dishes().find((d) => d.id === dishId);
           if (dish) {
-            // Guardar/actualizar el platillo en Dexie
             await this.dishesService.addDish(dish);
             menu.days[day].push({
               ...dish,
@@ -283,27 +289,27 @@ export class MenusPredefinidosComponent implements OnInit {
           }
         }
       }
-
-      await this.db.predefinedMenus.add(menu);
-      await this.loadMenus();
-      this.cancelForm();
-      
-      // Show success message
-      this.showSuccessMessage(`Menú "${menu.name}" guardado exitosamente`);
-    } catch (error) {
-      console.error('Error saving menu:', error);
-      alert('Error al guardar el menú. Inténtalo de nuevo.');
     }
     await this.predefinedMenuService.saveMenu(menu);
-    this.predefinedMenus = await this.predefinedMenuService.getAllMenus();
-    this.showAddForm = false;
+    this.predefinedMenus.set(await this.predefinedMenuService.getAllMenus());
+    this.showAddForm.set(false);
     this.newMenuName = "";
-    this.initializeNewMenuDays();
+    // Reiniciar estructura para selects
+    const daysObjReset: {
+      [day: string]: { [type: string]: string | undefined };
+    } = {};
+    for (const day of this.daysOfWeek) {
+      daysObjReset[day] = {};
+      for (const type of this.mealTypes) {
+        daysObjReset[day][type] = undefined;
+      }
+    }
+    this.newMenuDays.set(daysObjReset);
   }
 
   async deleteMenu(id: string) {
     await this.predefinedMenuService.deleteMenu(id);
-    this.predefinedMenus = await this.predefinedMenuService.getAllMenus();
+    this.predefinedMenus.set(await this.predefinedMenuService.getAllMenus());
   }
 
   async useMenu(menu: PredefinedMenuWeek) {
@@ -341,7 +347,7 @@ export class MenusPredefinidosComponent implements OnInit {
     await this.weeklyMenuService.saveMenu(menuObj);
     await this.menuService.loadWeekMenu(dateStr);
     // Recalcular inventario según el menú copiado
-    this.menuService.inventoryServicePublic.recalculateInventoryFromMenu(
+    await this.menuService.inventoryServicePublic.recalculateInventoryFromMenu(
       menuObj
     );
     weeklyMenuChanged$.next(dateStr);

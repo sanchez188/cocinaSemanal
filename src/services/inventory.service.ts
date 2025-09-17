@@ -63,8 +63,8 @@ export class InventoryService {
         category: item.category || "otros",
       }));
 
-      await this.db.ingredients.bulkAdd(ingredients);
-      await this.loadInventory();
+      await this.db.inventory.bulkAdd(ingredients);
+      await this.initInventory();
     } catch (error) {
       console.error("Error batch adding ingredients:", error);
     }
@@ -305,50 +305,50 @@ export class InventoryService {
     return this.inventorySignal();
   }
 
-  addIngredient(ingredient: Ingredient): void {
+  async addIngredient(ingredient: Ingredient): Promise<void> {
     const currentInventory = this.inventorySignal();
     const existingIndex = currentInventory.findIndex(
       (item) => item.id === ingredient.id
     );
-
     if (existingIndex !== -1) {
       currentInventory[existingIndex] = ingredient;
     } else {
       currentInventory.push(ingredient);
     }
-
     this.inventorySignal.set([...currentInventory]);
-    this.saveInventory();
+    await this.saveInventory();
+    await this.initInventory();
   }
 
-  updateIngredient(ingredient: Ingredient): void {
+  async updateIngredient(ingredient: Ingredient): Promise<void> {
     const currentInventory = this.inventorySignal();
     const index = currentInventory.findIndex(
       (item) => item.id === ingredient.id
     );
-
     if (index !== -1) {
       currentInventory[index] = ingredient;
       this.inventorySignal.set([...currentInventory]);
-      this.saveInventory();
+      await this.saveInventory();
+      await this.initInventory();
     }
   }
 
-  removeIngredient(id: string): void {
+  async removeIngredient(id: string): Promise<void> {
     const currentInventory = this.inventorySignal().filter(
       (item) => item.id !== id
     );
     this.inventorySignal.set(currentInventory);
-    this.saveInventory();
+    await this.saveInventory();
+    await this.initInventory();
   }
 
   /**
    * Consume ingredientes que tengan suficiente stock y devuelve los faltantes.
    * Devuelve un array con los ids de los ingredientes que no pudieron descontarse.
    */
-  consumeIngredients(
+  async consumeIngredients(
     ingredients: { ingredientId: string; quantity: number }[]
-  ): string[] {
+  ): Promise<string[]> {
     const currentInventory = [...this.inventorySignal()];
     const missing: string[] = [];
     for (const ingredient of ingredients) {
@@ -362,11 +362,12 @@ export class InventoryService {
       }
     }
     this.inventorySignal.set(currentInventory);
-    this.saveInventory();
+    await this.saveInventory();
+    await this.initInventory();
     return missing;
   }
 
-  addToInventory(
+  async addToInventory(
     ingredients: {
       ingredientId: string;
       name?: string;
@@ -374,9 +375,8 @@ export class InventoryService {
       unit?: string;
       pricePerUnit?: number;
     }[]
-  ): void {
+  ): Promise<void> {
     const currentInventory = [...this.inventorySignal()];
-
     for (const ingredient of ingredients) {
       let inventoryItem = currentInventory.find(
         (item) => item.id === ingredient.ingredientId
@@ -396,8 +396,8 @@ export class InventoryService {
         currentInventory.push(inventoryItem);
       }
     }
-
     this.inventorySignal.set(currentInventory);
-    this.saveInventory();
+    await this.saveInventory();
+    await this.initInventory();
   }
 }

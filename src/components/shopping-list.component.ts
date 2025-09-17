@@ -256,8 +256,8 @@ export class ShoppingListComponent implements OnInit {
   private shoppingService = inject(ShoppingService);
   private inventoryService = inject(InventoryService);
 
-  shoppingList = signal<ShoppingList | null>(null);
-  inventory = signal<any[]>([]);
+  shoppingList = this.shoppingService.shoppingList;
+  inventory = this.inventoryService.inventory;
 
   newItem: Partial<ShoppingItem> = {
     name: "",
@@ -268,8 +268,6 @@ export class ShoppingListComponent implements OnInit {
   selectedInventoryId: string = "";
 
   ngOnInit(): void {
-    this.shoppingList = this.shoppingService.shoppingList();
-    this.inventory = this.inventoryService.inventory();
     // Si quieres reactividad automática en la plantilla, usa signals directamente en el template
   }
 
@@ -289,8 +287,8 @@ export class ShoppingListComponent implements OnInit {
   }
 
   async generateList(): Promise<void> {
-    const list = await this.shoppingService.generateShoppingList();
-    this.shoppingList.set(list);
+    await this.shoppingService.generateShoppingList();
+    // La signal se actualiza automáticamente
   }
 
   async addItem(): Promise<void> {
@@ -305,7 +303,7 @@ export class ShoppingListComponent implements OnInit {
     )
       return;
 
-    await this.shoppingService.addManualItem({
+    this.shoppingService.addManualItem({
       ingredientId: this.selectedInventoryId || "manual-" + Date.now(),
       name: this.newItem.name,
       quantity: Number(this.newItem.quantity),
@@ -325,38 +323,11 @@ export class ShoppingListComponent implements OnInit {
 
   async toggleItem(index: number): Promise<void> {
     await this.shoppingService.toggleItemPurchased(index);
-
-    // Si se marcó como comprado, actualizar inventario
-    const item = this.shoppingList()?.items[index];
-    if (item && item.purchased) {
-      const inventoryList = this.inventory();
-      let ing = inventoryList.find(
-        (i) =>
-          i.name.toLowerCase() === item.name.toLowerCase() &&
-          i.unit === item.unit
-      );
-
-      if (ing) {
-        // Sumar cantidad
-        ing.quantity += item.quantity;
-        await this.inventoryService.updateIngredient(ing);
-      } else {
-        // Crear nuevo ingrediente
-        const newIng = {
-          id: item.ingredientId,
-          name: item.name,
-          quantity: item.quantity,
-          unit: item.unit,
-          pricePerUnit: item.pricePerUnit,
-          category: "otros",
-        };
-        await this.inventoryService.addIngredient(newIng);
-      }
-    }
+    // La lógica de inventario debe estar en el servicio de compras, no aquí
   }
 
   async removeItem(index: number): Promise<void> {
-    await this.shoppingService.removeItem(index);
+    this.shoppingService.removeItem(index);
   }
 
   async markAllAsPurchased(): Promise<void> {
@@ -368,8 +339,7 @@ export class ShoppingListComponent implements OnInit {
         await this.shoppingService.toggleItemPurchased(i);
       }
     }
-    // Sync local property with signal for immediate UI update
-    this.shoppingList = this.shoppingService.shoppingList();
+    // La signal se actualiza automáticamente
   }
 
   async finalizePurchase(): Promise<void> {

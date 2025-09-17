@@ -5,27 +5,25 @@
       <p class="text-gray-600">Gestiona tus ingredientes y existencias</p>
     </div>
     <button
-      (click)="showAddForm = !showAddForm"
+      (click)="showAddForm.set(!showAddForm())"
       class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
     >
-      {{ showAddForm ? "Cancelar" : "+ Nuevo Ingrediente" }}
+      {{ showAddForm() ? "Cancelar" : "+ Nuevo Ingrediente" }}
     </button>
   </div>
 
   <!-- Add/Edit Form -->
-  <div
-    *ngIf="showAddForm"
-    class="bg-white rounded-lg shadow-sm border p-6 mb-6"
-  >
+  @if (showAddForm()) {
+  <div class="bg-white rounded-lg shadow-sm border p-6 mb-6">
     <h3 class="text-lg font-semibold mb-4">
-      {{ editingIngredient ? "Editar" : "Nuevo" }} Ingrediente
+      {{ editingIngredient() ? "Editar" : "Nuevo" }} Ingrediente
     </h3>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2"
-          >Nombre</label
-        >
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Nombre
+        </label>
         <input
           type="text"
           [(ngModel)]="ingredientForm.name"
@@ -35,9 +33,9 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2"
-          >Cantidad</label
-        >
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Cantidad
+        </label>
         <input
           type="number"
           [(ngModel)]="ingredientForm.quantity"
@@ -49,9 +47,9 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2"
-          >Unidad</label
-        >
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Unidad
+        </label>
         <select
           [(ngModel)]="ingredientForm.unit"
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -60,23 +58,19 @@
           <option value="kg">Kilogramos</option>
           <option value="Latas">Latas</option>
           <option value="g">Gramos</option>
-          <option value="litro">
-            {{ ingredientForm.quantity <= 1 ? "Litro" : "Litros" }}
-          </option>
+          <option value="litro">Litros</option>
           <option value="ml">Mililitros</option>
           <option value="tazas">Tazas</option>
           <option value="cucharadas">Cucharadas</option>
           <option value="cucharaditas">Cucharaditas</option>
-          <option value="paquete">
-            {{ ingredientForm.quantity <= 1 ? "Paquete" : "Paquetes" }}
-          </option>
+          <option value="paquete">Paquetes</option>
         </select>
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2"
-          >Precio por unidad</label
-        >
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Precio por unidad
+        </label>
         <input
           type="number"
           [(ngModel)]="ingredientForm.pricePerUnit"
@@ -88,9 +82,9 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2"
-          >Categoría</label
-        >
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          Categoría
+        </label>
         <select
           [(ngModel)]="ingredientForm.category"
           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
@@ -111,18 +105,20 @@
     <div class="flex space-x-3">
       <button
         (click)="saveIngredient()"
-        class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+        [disabled]="!ingredientForm.name.trim()"
+        class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
-        {{ editingIngredient ? "Actualizar" : "Guardar" }}
+        {{ editingIngredient() ? "Actualizar" : "Guardar" }}
       </button>
       <button
         (click)="cancelEdit()"
-        class="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+        class="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
       >
         Cancelar
       </button>
     </div>
   </div>
+  }
 
   <!-- Search Input -->
   <div class="mb-4 flex justify-end">
@@ -134,6 +130,7 @@
       placeholder="Buscar ingrediente o categoría..."
     />
   </div>
+
   <!-- Inventory List -->
   <div class="bg-white rounded-lg shadow-sm border">
     <div class="overflow-x-auto">
@@ -173,9 +170,26 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
+          @if (groupedInventory().length === 0) {
+          <tr>
+            <td colspan="6" class="px-6 py-12 text-center">
+              <div class="text-gray-400 text-4xl mb-4">📦</div>
+              <h3 class="text-lg font-semibold text-gray-700 mb-2">
+                No hay ingredientes
+              </h3>
+              <p class="text-gray-500">
+                {{
+                  searchText
+                    ? "No se encontraron resultados"
+                    : "Agrega tu primer ingrediente"
+                }}
+              </p>
+            </td>
+          </tr>
+          } @for (ingredient of groupedInventory(); track ingredient.id) {
           <tr
-            *ngFor="let ingredient of groupedInventory"
             [class.bg-red-50]="ingredient.quantity <= 5"
+            class="hover:bg-gray-50 transition-colors"
           >
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="flex items-center">
@@ -211,18 +225,19 @@
             >
               <button
                 (click)="editIngredient(ingredient)"
-                class="text-blue-600 hover:text-blue-900"
+                class="text-blue-600 hover:text-blue-900 hover:bg-blue-50 px-2 py-1 rounded transition-colors"
               >
                 Editar
               </button>
               <button
                 (click)="deleteIngredient(ingredient.id)"
-                class="text-red-600 hover:text-red-900"
+                class="text-red-600 hover:text-red-900 hover:bg-red-50 px-2 py-1 rounded transition-colors"
               >
                 Eliminar
               </button>
             </td>
           </tr>
+          }
         </tbody>
       </table>
     </div>
@@ -232,7 +247,9 @@
   <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
     <div class="bg-white rounded-lg shadow-sm border p-4">
       <div class="text-sm font-medium text-gray-500">Total Ingredientes</div>
-      <div class="text-2xl font-bold text-gray-900">{{ inventory.length }}</div>
+      <div class="text-2xl font-bold text-gray-900">
+        {{ inventory().length }}
+      </div>
     </div>
     <div class="bg-white rounded-lg shadow-sm border p-4">
       <div class="text-sm font-medium text-gray-500">

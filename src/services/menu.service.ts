@@ -31,22 +31,21 @@ export class MenuService {
    * Procesa advertencias y consume inventario para todos los platillos del menú semanal.
    * Actualiza el campo warnings en el menú y emite el cambio.
    */
-  processMenuWarnings(menu: WeeklyMenu): void {
+  async processMenuWarnings(menu: WeeklyMenu): Promise<void> {
     if (!menu) return;
     menu.warnings = menu.warnings || {};
     for (const day of Object.keys(menu.days)) {
       menu.warnings[day] = menu.warnings[day] || {};
       for (const dish of menu.days[day]) {
         const meal = dish.category;
-        const missingIds = this.inventoryService.consumeIngredients(
+        const missingIds = await this.inventoryService.consumeIngredients(
           dish.ingredients
         );
         let missingIngredients: string[] = [];
         if (missingIds.length > 0) {
+          const inventory = await this.inventoryService.getInventory();
           missingIngredients = missingIds.map((id) => {
-            const inv = this.inventoryService
-              .getInventory()
-              .find((i) => i.id === id);
+            const inv = inventory.find((i) => i.id === id);
             return inv ? inv.name : id;
           });
         }
@@ -56,7 +55,7 @@ export class MenuService {
       }
     }
     this.currentMenuSignal.set({ ...menu });
-    this.saveMenu(menu);
+    await this.saveMenu(menu);
   }
 
   private getCurrentWeek(): string {

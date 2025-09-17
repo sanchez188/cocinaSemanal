@@ -98,6 +98,7 @@ export class ShoppingService {
     });
 
     // Check what we need to buy (subtract current inventory)
+    // ...existing code...
     const shoppingItems: ShoppingItem[] = [];
     for (const [ingredientId, required] of requiredIngredients) {
       const inventoryItem = inventory.find((item) => item.id === ingredientId);
@@ -146,7 +147,7 @@ export class ShoppingService {
     this.shoppingListService.saveShoppingList(currentList);
   }
 
-  completePurchase(): Purchase | null {
+  async completePurchase(): Promise<Purchase | null> {
     const shoppingList = this.shoppingListSignal();
     if (!shoppingList || !shoppingList.completed) return null;
 
@@ -203,7 +204,7 @@ export class ShoppingService {
 
   async exportWeeklyData(week: string): Promise<WeeklyData | null> {
     const menu = await this.menuService.getMenuForWeek(week);
-    const inventory = this.inventoryService.getInventory();
+    const inventory = await this.inventoryService.getInventory();
     const shoppingList = await this.shoppingListService.getShoppingList(
       `shopping-${week}`
     );
