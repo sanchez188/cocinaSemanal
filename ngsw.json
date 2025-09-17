@@ -1,6 +1,6 @@
 {
   "configVersion": 1,
-  "timestamp": 1758127704727,
+  "timestamp": 1758128623811,
   "index": "https://sanchez188.github.io/cocinaSemanal/index.html",
   "assetGroups": [
     {
@@ -31,7 +31,7 @@
   ],
   "dataGroups": [],
   "hashTable": {
-    "https://sanchez188.github.io/cocinaSemanal/index.html": "642975bfa4efddfc550615be7a644c6a57aac051",
+    "https://sanchez188.github.io/cocinaSemanal/index.html": "1c19719028d4d3d13436e70f0f842fe3d7d375e4",
     "https://sanchez188.github.io/cocinaSemanal/main-YURHHHON.js": "082ff5c229fe5d0dae38bc8362df3c02a2821176",
     "https://sanchez188.github.io/cocinaSemanal/polyfills-5CFQRCPP.js": "f2241e9a25858f895ce299d15f6f22e849e2fd72",
     "https://sanchez188.github.io/cocinaSemanal/styles-CTJK4SCG.css": "a3a4af9fc529099c3c89aa765d23a93fb9b6d5cc"
