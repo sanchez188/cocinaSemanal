@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ShoppingService } from '../services/shopping.service';
@@ -69,7 +69,9 @@ import { Purchase, WeeklyData } from '../models/interfaces';
                   class="hidden"
                 >
               </label>
-              <span *ngIf="selectedFile" class="text-sm text-gray-600">{{ selectedFile.name }}</span>
+              @if (selectedFile()) {
+                <span class="text-sm text-gray-600">{{ selectedFile()!.name }}</span>
+              }
             </div>
           </div>
         </div>
@@ -81,50 +83,50 @@ import { Purchase, WeeklyData } from '../models/interfaces';
           <h3 class="text-lg font-semibold">Historial de Compras</h3>
         </div>
         
-        <div *ngIf="purchases.length === 0" class="p-6 text-center">
-          <div class="text-gray-400 text-4xl mb-4">📊</div>
-          <p class="text-gray-500">No hay compras registradas aún</p>
-        </div>
-
-        <div class="divide-y divide-gray-200" *ngIf="purchases.length > 0">
-          <div
-            *ngFor="let purchase of purchases"
-            class="p-4"
-          >
-            <div class="flex justify-between items-start mb-3">
-              <div>
-                <div class="font-semibold">Compra del {{ formatDate(purchase.date) }}</div>
-                <div class="text-sm text-gray-500">Semana: {{ purchase.weekId }}</div>
-              </div>
-              <div class="text-right">
-                <div class="text-xl font-bold text-green-600">\${{ purchase.totalCost.toFixed(2) }}</div>
-                <div class="text-sm text-gray-500">{{ purchase.items.length }} artículos</div>
-              </div>
-            </div>
-            
-            <details class="mt-3">
-              <summary class="cursor-pointer text-blue-600 hover:text-blue-800 text-sm">Ver detalles</summary>
-              <div class="mt-3 pl-4 border-l-2 border-gray-200">
-                <div class="grid gap-2">
-                  <div
-                    *ngFor="let item of purchase.items"
-                    class="flex justify-between text-sm"
-                  >
-                    <span>{{ item.name }} ({{ item.quantity }} {{ item.unit }})</span>
-                    <span>\${{ item.totalPrice.toFixed(2) }}</span>
+        @if (purchases().length === 0) {
+          <div class="p-6 text-center">
+            <div class="text-gray-400 text-4xl mb-4">📊</div>
+            <p class="text-gray-500">No hay compras registradas aún</p>
+          </div>
+        } @else {
+          <div class="divide-y divide-gray-200">
+            @for (purchase of purchases(); track purchase.id) {
+              <div class="p-4">
+                <div class="flex justify-between items-start mb-3">
+                  <div>
+                    <div class="font-semibold">Compra del {{ formatDate(purchase.date) }}</div>
+                    <div class="text-sm text-gray-500">Semana: {{ purchase.weekId }}</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-xl font-bold text-green-600">\${{ purchase.totalCost.toFixed(2) }}</div>
+                    <div class="text-sm text-gray-500">{{ purchase.items.length }} artículos</div>
                   </div>
                 </div>
+                
+                <details class="mt-3">
+                  <summary class="cursor-pointer text-blue-600 hover:text-blue-800 text-sm">Ver detalles</summary>
+                  <div class="mt-3 pl-4 border-l-2 border-gray-200">
+                    <div class="grid gap-2">
+                      @for (item of purchase.items; track item.ingredientId) {
+                        <div class="flex justify-between text-sm">
+                          <span>{{ item.name }} ({{ item.quantity }} {{ item.unit }})</span>
+                          <span>\${{ item.totalPrice.toFixed(2) }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </details>
               </div>
-            </details>
+            }
           </div>
-        </div>
+        }
       </div>
 
       <!-- Statistics -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div class="bg-white rounded-lg shadow-sm border p-4">
           <div class="text-sm font-medium text-gray-500">Total Compras</div>
-          <div class="text-2xl font-bold text-gray-900">{{ purchases.length }}</div>
+          <div class="text-2xl font-bold text-gray-900">{{ purchases().length }}</div>
         </div>
         
         <div class="bg-white rounded-lg shadow-sm border p-4">
@@ -146,20 +148,20 @@ import { Purchase, WeeklyData } from '../models/interfaces';
   `
 })
 export class HistoryComponent implements OnInit {
-  purchases: Purchase[] = [];
-  selectedFile: File | null = null;
+  private shoppingService = inject(ShoppingService);
 
-  constructor(private shoppingService: ShoppingService) {}
+  purchases = signal<Purchase[]>([]);
+  selectedFile = signal<File | null>(null);
 
   ngOnInit(): void {
     this.shoppingService.purchases$.subscribe(purchases => {
-      this.purchases = purchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      this.purchases.set(purchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     });
   }
 
-  exportCurrentWeek(): void {
+  async exportCurrentWeek(): Promise<void> {
     const currentWeek = this.getCurrentWeek();
-    const weeklyData = this.shoppingService.exportWeeklyData(currentWeek);
+    const weeklyData = await this.shoppingService.exportWeeklyData(currentWeek);
     
     if (weeklyData) {
       const dataStr = JSON.stringify(weeklyData, null, 2);
@@ -172,28 +174,29 @@ export class HistoryComponent implements OnInit {
       link.click();
       
       URL.revokeObjectURL(url);
+      this.showSuccessMessage('Datos exportados exitosamente');
     } else {
       alert('No hay datos disponibles para exportar');
     }
   }
 
-  onFileSelected(event: any): void {
+  async onFileSelected(event: any): Promise<void> {
     const file = event.target.files?.[0];
     if (!file) return;
     
-    this.selectedFile = file;
+    this.selectedFile.set(file);
     
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const content = e.target?.result as string;
         const weeklyData: WeeklyData = JSON.parse(content);
         
-        const success = this.shoppingService.importWeeklyData(weeklyData);
+        const success = await this.shoppingService.importWeeklyData(weeklyData);
         
         if (success) {
-          alert('¡Datos importados exitosamente!');
-          this.selectedFile = null;
+          this.showSuccessMessage('¡Datos importados exitosamente!');
+          this.selectedFile.set(null);
           // Reset file input
           event.target.value = '';
         } else {
@@ -224,15 +227,31 @@ export class HistoryComponent implements OnInit {
   }
 
   getTotalSpent(): number {
-    return this.purchases.reduce((total, purchase) => total + purchase.totalCost, 0);
+    return this.purchases().reduce((total, purchase) => total + purchase.totalCost, 0);
   }
 
   getAverageSpent(): number {
-    if (this.purchases.length === 0) return 0;
-    return this.getTotalSpent() / this.purchases.length;
+    const purchaseList = this.purchases();
+    if (purchaseList.length === 0) return 0;
+    return this.getTotalSpent() / purchaseList.length;
   }
 
   getTotalItems(): number {
-    return this.purchases.reduce((total, purchase) => total + purchase.items.length, 0);
+    return this.purchases().reduce((total, purchase) => total + purchase.items.length, 0);
+  }
+
+  private showSuccessMessage(message: string): void {
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300';
+    notification.textContent = message;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.style.opacity = '0';
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 300);
+    }, 3000);
   }
 }

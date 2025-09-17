@@ -1,61 +1,74 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { Dish } from '../models/interfaces';
-import { StorageService } from './storage.service';
+import { DatabaseService } from './database.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class DishesService {
+  private db = inject(DatabaseService);
   private dishesSubject = new BehaviorSubject<Dish[]>([]);
   public dishes$ = this.dishesSubject.asObservable();
 
-  constructor(private storageService: StorageService) {
+  constructor() {
     this.loadDishes();
   }
 
-  private loadDishes(): void {
-    const dishes = this.storageService.getItem<Dish[]>('dishes') || [];
-    this.dishesSubject.next(dishes);
-  }
-
-  private saveDishes(): void {
-    this.storageService.setItem('dishes', this.dishesSubject.value);
-  }
-
-  getDishes(): Dish[] {
-    return this.dishesSubject.value;
-  }
-
-  getDishById(id: string): Dish | undefined {
-    return this.dishesSubject.value.find(dish => dish.id === id);
-  }
-
-  addDish(dish: Dish): void {
-    const currentDishes = this.dishesSubject.value;
-    currentDishes.push(dish);
-    this.dishesSubject.next([...currentDishes]);
-    this.saveDishes();
-  }
-
-  updateDish(dish: Dish): void {
-    const currentDishes = this.dishesSubject.value;
-    const index = currentDishes.findIndex(d => d.id === dish.id);
-    
-    if (index !== -1) {
-      currentDishes[index] = dish;
-      this.dishesSubject.next([...currentDishes]);
-      this.saveDishes();
+  private async loadDishes(): Promise<void> {
+    try {
+      const dishes = await this.db.dishes.toArray();
+      this.dishesSubject.next(dishes);
+    } catch (error) {
+      console.error('Error loading dishes:', error);
     }
   }
 
-  removeDish(id: string): void {
-    const currentDishes = this.dishesSubject.value.filter(dish => dish.id !== id);
-    this.dishesSubject.next(currentDishes);
-    this.saveDishes();
+  async getDishes(): Promise<Dish[]> {
+    return await this.db.dishes.toArray();
   }
 
-  getDishesByCategory(category: string): Dish[] {
-    return this.dishesSubject.value.filter(dish => dish.category === category);
+  async getDishById(id: string): Promise<Dish | undefined> {
+    return await this.db.dishes.get(id);
+  }
+
+  async addDish(dish: Dish): Promise<void> {
+    try {
+      await this.db.dishes.add(dish);
+      await this.loadDishes();
+    } catch (error) {
+      console.error('Error adding dish:', error);
+    }
+  }
+
+  async updateDish(dish: Dish): Promise<void> {
+    try {
+      await this.db.dishes.put(dish);
+      await this.loadDishes();
+    } catch (error) {
+      console.error('Error updating dish:', error);
+    }
+  }
+
+  async removeDish(id: string): Promise<void> {
+    try {
+      await this.db.dishes.delete(id);
+      await this.loadDishes();
+    } catch (error) {
+      console.error('Error removing dish:', error);
+    }
+  }
+
+  async getDishesByCategory(category: string): Promise<Dish[]> {
+    return await this.db.dishes.where('category').equals(category).toArray();
+  }
+
+  // Sync method for compatibility
+  getDishesSync(): Dish[] {
+    return this.dishesSubject.value;
+  }
+
+  getDishByIdSync(id: string): Dish | undefined {
+    return this.dishesSubject.value.find(dish => dish.id === id);
   }
 }

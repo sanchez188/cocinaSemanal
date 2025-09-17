@@ -1,4 +1,4 @@
-import { Injectable } from "@angular/core";
+import { Injectable, inject } from "@angular/core";
 import { BehaviorSubject } from "rxjs";
 import {
   ShoppingList,
@@ -6,7 +6,7 @@ import {
   WeeklyData,
   ShoppingItem,
 } from "../models/interfaces";
-import { StorageService } from "./storage.service";
+import { DatabaseService } from "./database.service";
 import { MenuService } from "./menu.service";
 import { DishesService } from "./dishes.service";
 import { InventoryService } from "./inventory.service";
@@ -15,89 +15,92 @@ import { InventoryService } from "./inventory.service";
   providedIn: "root",
 })
 export class ShoppingService {
+  private db = inject(DatabaseService);
+  private menuService = inject(MenuService);
+  private dishesService = inject(DishesService);
+  private inventoryService = inject(InventoryService);
+
   private shoppingListSubject = new BehaviorSubject<ShoppingList | null>(null);
   public shoppingList$ = this.shoppingListSubject.asObservable();
 
   private purchasesSubject = new BehaviorSubject<Purchase[]>([]);
   public purchases$ = this.purchasesSubject.asObservable();
 
-  constructor(
-    private storageService: StorageService,
-    private menuService: MenuService,
-    private dishesService: DishesService,
-    private inventoryService: InventoryService
-  ) {
+  constructor() {
     this.loadPurchases();
   }
 
-  public removeItem(index: number): void {
+  private async loadPurchases(): Promise<void> {
+    try {
+      const purchases = await this.db.purchases.toArray();
+      this.purchasesSubject.next(purchases);
+    } catch (error) {
+      console.error('Error loading purchases:', error);
+    }
+  }
+
+  private async savePurchases(): Promise<void> {
+    // Purchases are automatically saved to IndexedDB, no need for manual save
+  }
+
+  async removeItem(index: number): Promise<void> {
     const currentList = this.shoppingListSubject.value;
     if (!currentList) return;
+    
     currentList.items.splice(index, 1);
     currentList.totalCost = currentList.items.reduce(
       (total, i) => total + i.quantity * i.pricePerUnit,
       0
     );
     currentList.completed = currentList.items.every((i) => i.purchased);
+    
     this.shoppingListSubject.next({ ...currentList });
-    this.storageService.setItem(`shopping-${currentList.weekId}`, currentList);
+    await this.db.shoppingLists.put(currentList);
   }
 
-  private loadPurchases(): void {
-    const purchases =
-      this.storageService.getItem<Purchase[]>("purchases") || [];
-    this.purchasesSubject.next(purchases);
-  }
-  // Permite agregar un ingrediente manualmente a la lista de compras
-  private savePurchases(): void {
-    this.storageService.setItem("purchases", this.purchasesSubject.value);
-  }
-
-  addManualItem(item: ShoppingItem): void {
+  async addManualItem(item: ShoppingItem): Promise<void> {
     const currentList = this.shoppingListSubject.value;
     if (!currentList) return;
+    
     currentList.items.push(item);
     currentList.totalCost = currentList.items.reduce(
       (total, i) => total + i.quantity * i.pricePerUnit,
       0
     );
     currentList.completed = currentList.items.every((i) => i.purchased);
+    
     this.shoppingListSubject.next({ ...currentList });
-    this.storageService.setItem(`shopping-${currentList.weekId}`, currentList);
+    await this.db.shoppingLists.put(currentList);
   }
 
-  generateShoppingList(): ShoppingList | null {
+  async generateShoppingList(): Promise<ShoppingList | null> {
     const currentMenu = this.menuService.getCurrentMenu();
-    const inventory = this.inventoryService.getInventory();
+    const inventory = await this.inventoryService.getInventory();
 
     if (!currentMenu) return null;
 
     const requiredIngredients = new Map<string, number>();
 
     // Calculate required ingredients for all dishes in the menu
-    Object.keys(currentMenu.meals).forEach((day) => {
+    for (const day of Object.keys(currentMenu.meals)) {
       const dayMeals = currentMenu.meals[day];
-      Object.keys(dayMeals).forEach((mealType) => {
+      for (const mealType of Object.keys(dayMeals)) {
         const dishIds = dayMeals[mealType as keyof typeof dayMeals];
-        dishIds.forEach((dishId) => {
-          const dish = this.dishesService.getDishById(dishId);
+        for (const dishId of dishIds) {
+          const dish = await this.dishesService.getDishById(dishId);
           if (dish) {
             dish.ingredients.forEach((ingredient) => {
-              const currentRequired =
-                requiredIngredients.get(ingredient.ingredientId) || 0;
-              requiredIngredients.set(
-                ingredient.ingredientId,
-                currentRequired + ingredient.quantity
-              );
+              const currentRequired = requiredIngredients.get(ingredient.ingredientId) || 0;
+              requiredIngredients.set(ingredient.ingredientId, currentRequired + ingredient.quantity);
             });
           }
-        });
-      });
-    });
+        }
+      }
+    }
 
     // Check what we need to buy (subtract current inventory)
-    const shoppingItems: any[] = [];
-    requiredIngredients.forEach((required, ingredientId) => {
+    const shoppingItems: ShoppingItem[] = [];
+    for (const [ingredientId, required] of requiredIngredients) {
       const inventoryItem = inventory.find((item) => item.id === ingredientId);
       const available = inventoryItem ? inventoryItem.quantity : 0;
       const needed = Math.max(0, required - available);
@@ -112,7 +115,7 @@ export class ShoppingService {
           purchased: false,
         });
       }
-    });
+    }
 
     const shoppingList: ShoppingList = {
       id: `shopping-${currentMenu.week}`,
@@ -127,24 +130,23 @@ export class ShoppingService {
     };
 
     this.shoppingListSubject.next(shoppingList);
-    this.storageService.setItem(`shopping-${currentMenu.week}`, shoppingList);
+    await this.db.shoppingLists.put(shoppingList);
 
     return shoppingList;
   }
 
-  toggleItemPurchased(itemIndex: number): void {
+  async toggleItemPurchased(itemIndex: number): Promise<void> {
     const currentList = this.shoppingListSubject.value;
     if (!currentList) return;
 
-    currentList.items[itemIndex].purchased =
-      !currentList.items[itemIndex].purchased;
+    currentList.items[itemIndex].purchased = !currentList.items[itemIndex].purchased;
     currentList.completed = currentList.items.every((item) => item.purchased);
 
     this.shoppingListSubject.next({ ...currentList });
-    this.storageService.setItem(`shopping-${currentList.weekId}`, currentList);
+    await this.db.shoppingLists.put(currentList);
   }
 
-  completePurchase(): Purchase | null {
+  async completePurchase(): Promise<Purchase | null> {
     const shoppingList = this.shoppingListSubject.value;
     if (!shoppingList || !shoppingList.completed) return null;
 
@@ -163,14 +165,11 @@ export class ShoppingService {
       id: `purchase-${Date.now()}`,
       weekId: shoppingList.weekId,
       items: purchasedItems,
-      totalCost: purchasedItems.reduce(
-        (total, item) => total + item.totalPrice,
-        0
-      ),
+      totalCost: purchasedItems.reduce((total, item) => total + item.totalPrice, 0),
       date: new Date(),
     };
 
-    // Add purchased items to inventory (con toda la info)
+    // Add purchased items to inventory
     const inventoryItems = purchasedItems.map((item) => ({
       ingredientId: item.ingredientId,
       name: item.name,
@@ -179,92 +178,33 @@ export class ShoppingService {
       pricePerUnit: item.pricePerUnit,
     }));
 
-    this.inventoryService.addToInventory(inventoryItems);
+    await this.inventoryService.addToInventory(inventoryItems);
 
     // Save purchase
-    const currentPurchases = this.purchasesSubject.value;
-    currentPurchases.push(purchase);
-    this.purchasesSubject.next([...currentPurchases]);
-    this.savePurchases();
+    await this.db.purchases.add(purchase);
+    await this.loadPurchases();
 
-    // Limpiar la lista de compras después de completar
+    // Clear shopping list
     this.shoppingListSubject.next(null);
-    this.storageService.setItem(`shopping-${shoppingList.weekId}`, null);
+    await this.db.shoppingLists.delete(shoppingList.id);
 
     return purchase;
   }
 
-  getPurchases(): Purchase[] {
-    return this.purchasesSubject.value;
+  async getPurchases(): Promise<Purchase[]> {
+    return await this.db.purchases.toArray();
   }
 
-  exportWeeklyData(week: string): WeeklyData | null {
-    const menu = this.menuService.getMenuForWeek(week);
-    const inventory = this.inventoryService.getInventory();
-    const shoppingList = this.storageService.getItem<ShoppingList>(
-      `shopping-${week}`
-    );
-    const purchases = this.purchasesSubject.value.filter(
-      (p) => p.weekId === week
-    );
-
-    if (!menu) return null;
-
-    return {
-      week,
-      menu,
-      inventory,
-      shoppingList: shoppingList || {
-        id: "",
-        weekId: week,
-        items: [],
-        totalCost: 0,
-        completed: false,
-        createdAt: new Date(),
-      },
-      purchases,
-    };
+  async exportWeeklyData(week: string): Promise<WeeklyData | null> {
+    return await this.db.exportWeeklyData(week);
   }
 
-  importWeeklyData(data: WeeklyData): boolean {
-    try {
-      // Save menu
-      this.storageService.setItem(`menu-${data.week}`, data.menu);
-
-      // Update inventory (merge with existing)
-      const currentInventory = this.inventoryService.getInventory();
-      data.inventory.forEach((ingredient) => {
-        const existingIndex = currentInventory.findIndex(
-          (item) => item.id === ingredient.id
-        );
-        if (existingIndex === -1) {
-          this.inventoryService.addIngredient(ingredient);
-        }
-      });
-
-      // Save shopping list
-      if (data.shoppingList.id) {
-        this.storageService.setItem(`shopping-${data.week}`, data.shoppingList);
-      }
-
-      // Add purchases
-      const currentPurchases = this.purchasesSubject.value;
-      const newPurchases = [...currentPurchases];
-      data.purchases.forEach((purchase) => {
-        if (!newPurchases.find((p) => p.id === purchase.id)) {
-          newPurchases.push(purchase);
-        }
-      });
-      this.purchasesSubject.next(newPurchases);
-      this.savePurchases();
-
-      // Load the imported week as current
-      this.menuService.loadWeekMenu(data.week);
-
-      return true;
-    } catch (error) {
-      console.error("Error importing data:", error);
-      return false;
+  async importWeeklyData(data: WeeklyData): Promise<boolean> {
+    const success = await this.db.importWeeklyData(data);
+    if (success) {
+      await this.loadPurchases();
+      await this.menuService.loadWeekMenu(data.week);
     }
+    return success;
   }
 }
