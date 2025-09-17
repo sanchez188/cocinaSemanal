@@ -188,7 +188,10 @@ import { Dish, Ingredient, DishIngredient } from "../models/interfaces";
   `,
 })
 export class DishesManagementComponent implements OnInit {
-  dishes: Dish[] = [];
+  // Usar signal directamente en el template para reactividad automática
+  get dishes() {
+    return this.dishesService.dishes();
+  }
   inventory: Ingredient[] = [];
   showAddForm = false;
   editingDish: Dish | null = null;
@@ -206,13 +209,7 @@ export class DishesManagementComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.dishesService.dishes$.subscribe((dishes) => {
-      this.dishes = dishes;
-    });
-
-    this.inventoryService.inventory$.subscribe((inventory) => {
-      this.inventory = inventory;
-    });
+    this.inventory = this.inventoryService.inventory();
   }
 
   addIngredient(): void {
@@ -226,7 +223,7 @@ export class DishesManagementComponent implements OnInit {
     this.dishForm.ingredients.splice(index, 1);
   }
 
-  saveDish(): void {
+  async saveDish(): Promise<void> {
     if (!this.dishForm.name.trim()) return;
 
     const validIngredients = this.dishForm.ingredients.filter(
@@ -242,9 +239,9 @@ export class DishesManagementComponent implements OnInit {
     };
 
     if (this.editingDish) {
-      this.dishesService.updateDish(dish);
+      await this.dishesService.updateDish(dish);
     } else {
-      this.dishesService.addDish(dish);
+      await this.dishesService.addDish(dish);
     }
 
     this.cancelEdit();
@@ -261,9 +258,9 @@ export class DishesManagementComponent implements OnInit {
     this.showAddForm = true;
   }
 
-  deleteDish(id: string): void {
+  async deleteDish(id: string): Promise<void> {
     if (confirm("¿Estás seguro de que quieres eliminar este platillo?")) {
-      this.dishesService.removeDish(id);
+      await this.dishesService.removeDish(id);
     }
   }
 

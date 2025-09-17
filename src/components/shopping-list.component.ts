@@ -28,12 +28,9 @@ export class ShoppingListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.shoppingService.shoppingList$.subscribe((list) => {
-      this.shoppingList = list;
-    });
-    this.inventoryService.inventory$.subscribe((inv) => {
-      this.inventory = inv;
-    });
+    this.shoppingList = this.shoppingService.shoppingList();
+    this.inventory = this.inventoryService.inventory();
+    // Si quieres reactividad automática en la plantilla, usa signals directamente en el template
   }
 
   public formatPrice(value: number): string {
@@ -123,6 +120,8 @@ export class ShoppingListComponent implements OnInit {
         this.shoppingService.toggleItemPurchased(index);
       }
     });
+    // Sync local property with signal for immediate UI update
+    this.shoppingList = this.shoppingService.shoppingList();
   }
 
   finalizePurchase(): void {

@@ -1,23 +1,62 @@
 import { Injectable } from "@angular/core";
-import { BehaviorSubject } from "rxjs";
-import { WeeklyMenu, Dish } from "../models/interfaces";
-import { StorageService } from "./storage.service";
+import { WeeklyMenu, Dish, DAYS_OF_WEEK } from "../models/interfaces";
+import { WeeklyMenuService } from "./weekly-menu.service";
 import { InventoryService } from "./inventory.service";
 import { DishesService } from "./dishes.service";
+import { signal, WritableSignal } from "@angular/core";
 
 @Injectable({
   providedIn: "root",
 })
 export class MenuService {
-  private currentMenuSubject = new BehaviorSubject<WeeklyMenu | null>(null);
-  public currentMenu$ = this.currentMenuSubject.asObservable();
+  private currentMenuSignal: WritableSignal<WeeklyMenu | null> = signal(null);
+  public currentMenu$ = this.currentMenuSignal;
+  public currentMenu(): WeeklyMenu | null {
+    return this.currentMenuSignal();
+  }
+  // Permitir acceso público al servicio de inventario
+  public get inventoryServicePublic() {
+    return this.inventoryService;
+  }
 
   constructor(
-    private storageService: StorageService,
+    private weeklyMenuService: WeeklyMenuService,
     private inventoryService: InventoryService,
     private dishesService: DishesService
   ) {
     this.loadCurrentWeekMenu();
+  }
+
+  /**
+   * Procesa advertencias y consume inventario para todos los platillos del menú semanal.
+   * Actualiza el campo warnings en el menú y emite el cambio.
+   */
+  processMenuWarnings(menu: WeeklyMenu): void {
+    if (!menu) return;
+    menu.warnings = menu.warnings || {};
+    for (const day of Object.keys(menu.days)) {
+      menu.warnings[day] = menu.warnings[day] || {};
+      for (const dish of menu.days[day]) {
+        const meal = dish.category;
+        const missingIds = this.inventoryService.consumeIngredients(
+          dish.ingredients
+        );
+        let missingIngredients: string[] = [];
+        if (missingIds.length > 0) {
+          missingIngredients = missingIds.map((id) => {
+            const inv = this.inventoryService
+              .getInventory()
+              .find((i) => i.id === id);
+            return inv ? inv.name : id;
+          });
+        }
+        menu.warnings[day][meal] = menu.warnings[day][meal] || {};
+        menu.warnings[day][meal][dish.id] =
+          missingIngredients.length > 0 ? missingIngredients : null;
+      }
+    }
+    this.currentMenuSignal.set({ ...menu });
+    this.saveMenu(menu);
   }
 
   private getCurrentWeek(): string {
@@ -28,51 +67,34 @@ export class MenuService {
   }
 
   private initializeEmptyWeek(week: string): WeeklyMenu {
-    const days = [
-      "lunes",
-      "martes",
-      "miercoles",
-      "jueves",
-      "viernes",
-      "sabado",
-      "domingo",
-    ];
-    const meals: any = {};
-
-    days.forEach((day) => {
-      meals[day] = {
-        desayuno: [],
-        almuerzo: [],
-        cafe: [],
-        cena: [],
-      };
-    });
-
+    const days: { [day: string]: Dish[] } = {};
+    for (const day of DAYS_OF_WEEK) {
+      days[day] = [];
+    }
     return {
       id: `menu-${week}`,
       week,
-      meals,
+      days,
     };
   }
 
-  private loadCurrentWeekMenu(): void {
+  private async loadCurrentWeekMenu(): Promise<void> {
     const currentWeek = this.getCurrentWeek();
-    let menu = this.storageService.getItem<WeeklyMenu>(`menu-${currentWeek}`);
-
+    let menu = await this.weeklyMenuService.getMenu(`menu-${currentWeek}`);
     if (!menu) {
       menu = this.initializeEmptyWeek(currentWeek);
-      this.saveMenu(menu);
+      await this.saveMenu(menu);
     }
-
-    this.currentMenuSubject.next(menu);
+    this.currentMenuSignal.set(menu);
+    // NO recalcular inventario aquí
   }
 
-  private saveMenu(menu: WeeklyMenu): void {
-    this.storageService.setItem(`menu-${menu.week}`, menu);
+  private async saveMenu(menu: WeeklyMenu): Promise<void> {
+    await this.weeklyMenuService.saveMenu(menu);
   }
 
   getCurrentMenu(): WeeklyMenu | null {
-    return this.currentMenuSubject.value;
+    return this.currentMenuSignal();
   }
 
   /**
@@ -80,24 +102,19 @@ export class MenuService {
    * Si no hay suficiente stock, marca el platillo como advertencia y permite agregarlo.
    * Devuelve un objeto con el estado de advertencia para la UI.
    */
-  addDishToMenu(
+  async addDishToMenu(
     day: string,
     meal: string,
     dishId: string
-  ): { warning: boolean; missingIngredients: string[] } {
-    const currentMenu = this.currentMenuSubject.value;
+  ): Promise<{ warning: boolean; missingIngredients: string[] }> {
+    const currentMenu = this.currentMenuSignal();
     if (!currentMenu) return { warning: false, missingIngredients: [] };
 
-    if (!currentMenu.meals[day]) {
-      currentMenu.meals[day] = {
-        desayuno: [],
-        almuerzo: [],
-        cafe: [],
-        cena: [],
-      };
+    if (!currentMenu.days[day]) {
+      currentMenu.days[day] = [];
     }
 
-    const dish = this.dishesService.getDishById(dishId);
+    const dish = await this.dishesService.getDishById(dishId);
     let warning = false;
     let missingIngredients: string[] = [];
     if (dish) {
@@ -118,24 +135,20 @@ export class MenuService {
     }
 
     // Permite agregar el platillo aunque haya advertencia
-    if (
-      !currentMenu.meals[day][
-        meal as keyof (typeof currentMenu.meals)["lunes"]
-      ].includes(dishId)
-    ) {
-      currentMenu.meals[day][
-        meal as keyof (typeof currentMenu.meals)["lunes"]
-      ].push(dishId);
-      // Guardar advertencia en el menú (opcional, aquí como ejemplo)
-      if (!currentMenu["warnings"]) currentMenu["warnings"] = {};
-      if (!currentMenu["warnings"][day]) currentMenu["warnings"][day] = {};
-      currentMenu["warnings"][day][meal] =
-        currentMenu["warnings"][day][meal] || {};
-      currentMenu["warnings"][day][meal][dishId] = warning
-        ? missingIngredients
-        : null;
-      this.currentMenuSubject.next({ ...currentMenu });
-      this.saveMenu(currentMenu);
+    if (!currentMenu.days[day].find((d) => d.id === dishId)) {
+      if (dish) {
+        currentMenu.days[day].push(dish);
+        // Guardar advertencia en el menú (opcional, aquí como ejemplo)
+        if (!currentMenu["warnings"]) currentMenu["warnings"] = {};
+        if (!currentMenu["warnings"][day]) currentMenu["warnings"][day] = {};
+        currentMenu["warnings"][day][meal] =
+          currentMenu["warnings"][day][meal] || {};
+        currentMenu["warnings"][day][meal][dishId] = warning
+          ? missingIngredients
+          : null;
+        this.currentMenuSignal.set({ ...currentMenu });
+        await this.saveMenu(currentMenu);
+      }
     }
     return { warning, missingIngredients };
   }
@@ -143,21 +156,26 @@ export class MenuService {
   /**
    * Elimina un platillo del menú y devuelve ingredientes al inventario.
    */
-  removeDishFromMenu(day: string, meal: string, dishId: string): void {
-    const currentMenu = this.currentMenuSubject.value;
+  async removeDishFromMenu(
+    day: string,
+    meal: string,
+    dishId: string
+  ): Promise<void> {
+    const currentMenu = this.currentMenuSignal();
     if (!currentMenu) return;
 
-    const mealArray =
-      currentMenu.meals[day][meal as keyof (typeof currentMenu.meals)["lunes"]];
-    const index = mealArray.indexOf(dishId);
+    const dayArray = currentMenu.days[day];
+    const index = dayArray.findIndex(
+      (d) => d.id === dishId && d.category === meal
+    );
 
     if (index !== -1) {
       // Devuelve ingredientes al inventario
-      const dish = this.dishesService.getDishById(dishId);
+      const dish = dayArray[index];
       if (dish) {
         this.inventoryService.addToInventory(dish.ingredients);
       }
-      mealArray.splice(index, 1);
+      dayArray.splice(index, 1);
       // Elimina advertencia si existe
       if (
         currentMenu["warnings"] &&
@@ -166,23 +184,23 @@ export class MenuService {
       ) {
         delete currentMenu["warnings"][day][meal][dishId];
       }
-      this.currentMenuSubject.next({ ...currentMenu });
-      this.saveMenu(currentMenu);
+      this.currentMenuSignal.set({ ...currentMenu });
+      await this.saveMenu(currentMenu);
     }
   }
 
-  getMenuForWeek(week: string): WeeklyMenu | null {
-    return this.storageService.getItem<WeeklyMenu>(`menu-${week}`);
+  async getMenuForWeek(week: string): Promise<WeeklyMenu | null> {
+    const menu = await this.weeklyMenuService.getMenu(`menu-${week}`);
+    return menu ?? null;
   }
 
-  loadWeekMenu(week: string): void {
-    let menu = this.getMenuForWeek(week);
-
+  async loadWeekMenu(week: string): Promise<void> {
+    let menu = await this.weeklyMenuService.getMenu(`menu-${week}`);
     if (!menu) {
       menu = this.initializeEmptyWeek(week);
-      this.saveMenu(menu);
+      await this.saveMenu(menu);
     }
-
-    this.currentMenuSubject.next(menu);
+    this.currentMenuSignal.set(menu);
+    // NO recalcular inventario aquí
   }
 }

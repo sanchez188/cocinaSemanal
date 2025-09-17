@@ -1,3 +1,13 @@
+// Días de la semana normalizados (minúscula, sin acentos)
+export const DAYS_OF_WEEK = [
+  "lunes",
+  "martes",
+  "miercoles",
+  "jueves",
+  "viernes",
+  "sabado",
+  "domingo",
+];
 export interface Ingredient {
   id: string;
   name: string;
@@ -25,14 +35,7 @@ export interface DishIngredient {
 export interface WeeklyMenu {
   id: string;
   week: string; // YYYY-MM-DD format for Monday of the week
-  meals: {
-    [day: string]: {
-      desayuno: string[];
-      almuerzo: string[];
-      cafe: string[];
-      cena: string[];
-    };
-  };
+  days: { [day: string]: Dish[] };
   warnings?: {
     [day: string]: {
       [meal: string]: {

@@ -1,61 +1,88 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
-import { Dish } from '../models/interfaces';
-import { StorageService } from './storage.service';
+import { Injectable } from "@angular/core";
+import { signal, WritableSignal } from "@angular/core";
+import { Dish } from "../models/interfaces";
+import { v4 as uuidv4 } from "uuid";
+import { CocinaSemanalDB } from "./db.service";
+import { StorageService } from "./storage.service";
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: "root",
 })
 export class DishesService {
-  private dishesSubject = new BehaviorSubject<Dish[]>([]);
-  public dishes$ = this.dishesSubject.asObservable();
+  private dishesSignal: WritableSignal<Dish[]> = signal([]);
+  public dishes = this.dishesSignal;
 
-  constructor(private storageService: StorageService) {
-    this.loadDishes();
+  constructor(
+    private db: CocinaSemanalDB,
+    private storageService: StorageService
+  ) {
+    this.init();
   }
 
-  private loadDishes(): void {
-    const dishes = this.storageService.getItem<Dish[]>('dishes') || [];
-    this.dishesSubject.next(dishes);
+  private async init(): Promise<void> {
+    await this.migrateFromLocalStorageIfNeeded();
+    await this.loadDishes();
   }
 
-  private saveDishes(): void {
-    this.storageService.setItem('dishes', this.dishesSubject.value);
-  }
-
-  getDishes(): Dish[] {
-    return this.dishesSubject.value;
-  }
-
-  getDishById(id: string): Dish | undefined {
-    return this.dishesSubject.value.find(dish => dish.id === id);
-  }
-
-  addDish(dish: Dish): void {
-    const currentDishes = this.dishesSubject.value;
-    currentDishes.push(dish);
-    this.dishesSubject.next([...currentDishes]);
-    this.saveDishes();
-  }
-
-  updateDish(dish: Dish): void {
-    const currentDishes = this.dishesSubject.value;
-    const index = currentDishes.findIndex(d => d.id === dish.id);
-    
-    if (index !== -1) {
-      currentDishes[index] = dish;
-      this.dishesSubject.next([...currentDishes]);
-      this.saveDishes();
+  private async migrateFromLocalStorageIfNeeded(): Promise<void> {
+    const dexieCount = await this.db.dishes.count();
+    if (dexieCount === 0) {
+      const localDishes = this.storageService.getItem<Dish[]>("dishes") || [];
+      if (localDishes.length > 0) {
+        await this.db.dishes.bulkPut(localDishes);
+        this.storageService.removeItem("dishes");
+      }
     }
   }
 
-  removeDish(id: string): void {
-    const currentDishes = this.dishesSubject.value.filter(dish => dish.id !== id);
-    this.dishesSubject.next(currentDishes);
-    this.saveDishes();
+  private async loadDishes(): Promise<void> {
+    const dishes = await this.db.dishes.toArray();
+    if (dishes.length === 0) {
+      console.warn("[DishesService] No hay platillos en la base Dexie.");
+    } else {
+      console.info("[DishesService] Platillos cargados:", dishes);
+    }
+    this.dishesSignal.set(dishes);
   }
 
-  getDishesByCategory(category: string): Dish[] {
-    return this.dishesSubject.value.filter(dish => dish.category === category);
+  getDishes(): Dish[] {
+    return this.dishesSignal();
+  }
+
+  async getDishById(id: string): Promise<Dish | undefined> {
+    return await this.db.dishes.get(id);
+  }
+
+  async addDish(dish: Dish): Promise<void> {
+    debugger;
+    // Asegura que el platillo tenga un id único
+    if (!dish.id || typeof dish.id !== "string" || dish.id.trim() === "") {
+      dish.id = uuidv4();
+    }
+    try {
+      await this.db.dishes.put(dish);
+      console.info("[DishesService] Platillo guardado:", dish);
+    } catch (err) {
+      console.error("[DishesService] Error al guardar platillo:", err, dish);
+    }
+    await this.loadDishes();
+  }
+
+  async updateDish(dish: Dish): Promise<void> {
+    await this.db.dishes.put(dish);
+    await this.loadDishes();
+  }
+
+  async removeDish(id: string): Promise<void> {
+    await this.db.dishes.delete(id);
+    await this.loadDishes();
+  }
+
+  async getDishesByCategory(category: string): Promise<Dish[]> {
+    const dishes = await this.db.dishes
+      .where("category")
+      .equals(category)
+      .toArray();
+    return dishes;
   }
 }

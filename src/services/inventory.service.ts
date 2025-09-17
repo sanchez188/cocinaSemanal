@@ -1,12 +1,39 @@
 import { Injectable } from "@angular/core";
-import { BehaviorSubject } from "rxjs";
+import { signal, WritableSignal } from "@angular/core";
 import { Ingredient } from "../models/interfaces";
-import { StorageService } from "./storage.service";
+import { CocinaSemanalDB, InventoryItem } from "./db.service";
 
 @Injectable({
   providedIn: "root",
 })
 export class InventoryService {
+  /**
+   * Recalcula el inventario descontando los ingredientes usados en el menú semanal.
+   */
+  recalculateInventoryFromMenu(menu: { days: { [day: string]: any[] } }): void {
+    // Copia el inventario actual
+    const inventory = [...this.inventorySignal()];
+    // Sumar ingredientes usados en el menú
+    const used: { [id: string]: number } = {};
+    for (const day of Object.keys(menu.days)) {
+      for (const dish of menu.days[day]) {
+        if (dish.ingredients) {
+          for (const ing of dish.ingredients) {
+            used[ing.ingredientId] =
+              (used[ing.ingredientId] || 0) + ing.quantity;
+          }
+        }
+      }
+    }
+    // Descontar del inventario
+    for (const item of inventory) {
+      if (used[item.id]) {
+        item.quantity = Math.max(0, item.quantity - used[item.id]);
+      }
+    }
+    this.inventorySignal.set([...inventory]);
+    this.saveInventory();
+  }
   /**
    * Agrega múltiples ingredientes al inventario, soportando unidad y paquete.
    */
@@ -38,11 +65,30 @@ export class InventoryService {
       this.addIngredient(ingredient);
     }
   }
-  private inventorySubject = new BehaviorSubject<Ingredient[]>([]);
-  public inventory$ = this.inventorySubject.asObservable();
+  private inventorySignal: WritableSignal<Ingredient[]> = signal([]);
+  public inventory = this.inventorySignal;
 
-  constructor(private storageService: StorageService) {
-    this.loadInventory();
+  constructor(private db: CocinaSemanalDB) {
+    this.initInventory();
+  }
+
+  private async initInventory(): Promise<void> {
+    // Migrar de localStorage si existe y Dexie está vacío
+    const dexieItems = await this.db.inventory.toArray();
+    if (dexieItems.length === 0) {
+      const local = localStorage.getItem("meal-planner-inventory");
+      if (local) {
+        const items: Ingredient[] = JSON.parse(local);
+        for (const item of items) {
+          await this.db.inventory.put(item);
+        }
+        localStorage.removeItem("meal-planner-inventory");
+        this.inventorySignal.set(items);
+        return;
+      }
+    }
+    // Mapear a Ingredient si es necesario
+    this.inventorySignal.set(dexieItems as Ingredient[]);
     // Si el inventario está vacío, cargar productos iniciales
     if (this.getInventory().length === 0) {
       this.batchAddIngredients([
@@ -244,22 +290,19 @@ export class InventoryService {
     }
   }
 
-  private loadInventory(): void {
-    const inventory =
-      this.storageService.getItem<Ingredient[]>("inventory") || [];
-    this.inventorySubject.next(inventory);
-  }
-
-  private saveInventory(): void {
-    this.storageService.setItem("inventory", this.inventorySubject.value);
+  async saveInventory(): Promise<void> {
+    const items = this.inventorySignal();
+    for (const item of items) {
+      await this.db.inventory.put(item);
+    }
   }
 
   getInventory(): Ingredient[] {
-    return this.inventorySubject.value;
+    return this.inventorySignal();
   }
 
   addIngredient(ingredient: Ingredient): void {
-    const currentInventory = this.inventorySubject.value;
+    const currentInventory = this.inventorySignal();
     const existingIndex = currentInventory.findIndex(
       (item) => item.id === ingredient.id
     );
@@ -270,28 +313,28 @@ export class InventoryService {
       currentInventory.push(ingredient);
     }
 
-    this.inventorySubject.next([...currentInventory]);
+    this.inventorySignal.set([...currentInventory]);
     this.saveInventory();
   }
 
   updateIngredient(ingredient: Ingredient): void {
-    const currentInventory = this.inventorySubject.value;
+    const currentInventory = this.inventorySignal();
     const index = currentInventory.findIndex(
       (item) => item.id === ingredient.id
     );
 
     if (index !== -1) {
       currentInventory[index] = ingredient;
-      this.inventorySubject.next([...currentInventory]);
+      this.inventorySignal.set([...currentInventory]);
       this.saveInventory();
     }
   }
 
   removeIngredient(id: string): void {
-    const currentInventory = this.inventorySubject.value.filter(
+    const currentInventory = this.inventorySignal().filter(
       (item) => item.id !== id
     );
-    this.inventorySubject.next(currentInventory);
+    this.inventorySignal.set(currentInventory);
     this.saveInventory();
   }
 
@@ -302,7 +345,7 @@ export class InventoryService {
   consumeIngredients(
     ingredients: { ingredientId: string; quantity: number }[]
   ): string[] {
-    const currentInventory = [...this.inventorySubject.value];
+    const currentInventory = [...this.inventorySignal()];
     const missing: string[] = [];
     for (const ingredient of ingredients) {
       const inventoryItem = currentInventory.find(
@@ -314,7 +357,7 @@ export class InventoryService {
         inventoryItem.quantity -= ingredient.quantity;
       }
     }
-    this.inventorySubject.next(currentInventory);
+    this.inventorySignal.set(currentInventory);
     this.saveInventory();
     return missing;
   }
@@ -328,7 +371,7 @@ export class InventoryService {
       pricePerUnit?: number;
     }[]
   ): void {
-    const currentInventory = [...this.inventorySubject.value];
+    const currentInventory = [...this.inventorySignal()];
 
     for (const ingredient of ingredients) {
       let inventoryItem = currentInventory.find(
@@ -350,7 +393,7 @@ export class InventoryService {
       }
     }
 
-    this.inventorySubject.next(currentInventory);
+    this.inventorySignal.set(currentInventory);
     this.saveInventory();
   }
 }

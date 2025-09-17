@@ -11,7 +11,9 @@ import { Ingredient } from "../models/interfaces";
   templateUrl: "./inventory-management.component.html",
 })
 export class InventoryManagementComponent implements OnInit {
-  inventory: Ingredient[] = [];
+  get inventory(): Ingredient[] {
+    return this.inventoryService.inventory();
+  }
   groupedInventory: Ingredient[] = [];
   showAddForm = false;
   editingIngredient: Ingredient | null = null;
@@ -28,10 +30,8 @@ export class InventoryManagementComponent implements OnInit {
   constructor(private inventoryService: InventoryService) {}
 
   ngOnInit(): void {
-    this.inventoryService.inventory$.subscribe((inventory) => {
-      this.inventory = inventory;
-      this.filterInventory();
-    });
+    this.filterInventory();
+    // Si quieres reactividad automática en la plantilla, usa signals directamente en el template
   }
 
   filterInventory(): void {
@@ -71,6 +71,7 @@ export class InventoryManagementComponent implements OnInit {
       this.inventoryService.addIngredient(ingredient);
     }
 
+    this.filterInventory();
     this.cancelEdit();
   }
 
@@ -89,6 +90,7 @@ export class InventoryManagementComponent implements OnInit {
   deleteIngredient(id: string): void {
     if (confirm("¿Estás seguro de que quieres eliminar este ingrediente?")) {
       this.inventoryService.removeIngredient(id);
+      this.filterInventory();
     }
   }
 

@@ -2,8 +2,9 @@ import { Component, OnInit } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { MenuService } from "../services/menu.service";
+import { weeklyMenuChanged$ } from "./menus-predefinidos.component";
 import { DishesService } from "../services/dishes.service";
-import { WeeklyMenu, Dish } from "../models/interfaces";
+import { WeeklyMenu, Dish, DAYS_OF_WEEK } from "../models/interfaces";
 
 @Component({
   selector: "app-weekly-menu",
@@ -64,7 +65,8 @@ import { WeeklyMenu, Dish } from "../models/interfaces";
 
               <div class="flex space-x-2">
                 <select
-                  [(ngModel)]="selectedDishes[day + '-' + meal]"
+                  [ngModel]="selectedDishes[day + '-' + meal]"
+                  (ngModelChange)="selectedDishes[day + '-' + meal] = $event"
                   class="flex-1 text-xs px-2 py-1 border rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Seleccionar platillo</option>
@@ -109,19 +111,14 @@ export class WeeklyMenuComponent implements OnInit {
     if (!mealWarnings) return null;
     return mealWarnings[dishId] || null;
   }
-  currentMenu: WeeklyMenu | null = null;
+  // Usar signal directamente en el template para reactividad automática
+  get currentMenu(): WeeklyMenu | null {
+    return this.menuService.currentMenu();
+  }
   dishes: Dish[] = [];
   selectedDishes: { [key: string]: string } = {};
 
-  days = [
-    "lunes",
-    "martes",
-    "miercoles",
-    "jueves",
-    "viernes",
-    "sabado",
-    "domingo",
-  ];
+  days = DAYS_OF_WEEK;
   meals = ["desayuno", "almuerzo", "cafe", "cena"];
 
   constructor(
@@ -130,21 +127,28 @@ export class WeeklyMenuComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.menuService.currentMenu$.subscribe((menu) => {
-      this.currentMenu = menu;
-    });
-
-    this.dishesService.dishes$.subscribe((dishes) => {
-      this.dishes = dishes;
+    const menu = this.menuService.currentMenu();
+    if (menu) {
+      this.selectedDishes = {};
+      for (const day of this.days) {
+        for (const meal of this.meals) {
+          const dish = menu.days[day]?.find((d) => d.category === meal);
+          this.selectedDishes[day + "-" + meal] = dish ? dish.id : "";
+        }
+      }
+    }
+    this.dishes = this.dishesService.dishes();
+    weeklyMenuChanged$.subscribe(async (week: string) => {
+      await this.menuService.loadWeekMenu(week);
     });
   }
 
   getMealDishes(day: string, meal: string): string[] {
-    if (!this.currentMenu || !this.currentMenu.meals[day]) return [];
-    return (
-      this.currentMenu.meals[day][meal as keyof WeeklyMenu["meals"][string]] ||
-      []
-    );
+    if (!this.currentMenu || !this.currentMenu.days[day]) return [];
+    // Filtrar los platillos del día por categoría (meal)
+    return this.currentMenu.days[day]
+      .filter((dish) => dish.category === meal)
+      .map((dish) => dish.id);
   }
 
   getDishName(dishId: string): string {
@@ -156,15 +160,15 @@ export class WeeklyMenuComponent implements OnInit {
     return this.dishes.filter((dish) => dish.category === meal);
   }
 
-  addDish(day: string, meal: string): void {
+  async addDish(day: string, meal: string): Promise<void> {
     const selectedDishId = this.selectedDishes[day + "-" + meal];
     if (selectedDishId) {
-      this.menuService.addDishToMenu(day, meal, selectedDishId);
+      await this.menuService.addDishToMenu(day, meal, selectedDishId);
       this.selectedDishes[day + "-" + meal] = "";
     }
   }
 
-  removeDish(day: string, meal: string, dishId: string): void {
-    this.menuService.removeDishFromMenu(day, meal, dishId);
+  async removeDish(day: string, meal: string, dishId: string): Promise<void> {
+    await this.menuService.removeDishFromMenu(day, meal, dishId);
   }
 }

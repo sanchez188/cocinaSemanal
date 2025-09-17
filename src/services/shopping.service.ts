@@ -1,37 +1,41 @@
 import { Injectable } from "@angular/core";
-import { BehaviorSubject } from "rxjs";
+import { signal, WritableSignal } from "@angular/core";
 import {
   ShoppingList,
   Purchase,
   WeeklyData,
   ShoppingItem,
+  Dish,
 } from "../models/interfaces";
-import { StorageService } from "./storage.service";
+import { ShoppingListService } from "./shopping-list.service";
 import { MenuService } from "./menu.service";
 import { DishesService } from "./dishes.service";
 import { InventoryService } from "./inventory.service";
+import { WeeklyMenuService } from "./weekly-menu.service";
 
 @Injectable({
   providedIn: "root",
 })
 export class ShoppingService {
-  private shoppingListSubject = new BehaviorSubject<ShoppingList | null>(null);
-  public shoppingList$ = this.shoppingListSubject.asObservable();
+  private shoppingListSignal: WritableSignal<ShoppingList | null> =
+    signal(null);
+  public shoppingList = this.shoppingListSignal;
 
-  private purchasesSubject = new BehaviorSubject<Purchase[]>([]);
-  public purchases$ = this.purchasesSubject.asObservable();
+  private purchasesSignal: WritableSignal<Purchase[]> = signal([]);
+  public purchases = this.purchasesSignal;
 
   constructor(
-    private storageService: StorageService,
+    private shoppingListService: ShoppingListService,
     private menuService: MenuService,
     private dishesService: DishesService,
-    private inventoryService: InventoryService
+    private inventoryService: InventoryService,
+    private weeklyMenuService: WeeklyMenuService
   ) {
     this.loadPurchases();
   }
 
   public removeItem(index: number): void {
-    const currentList = this.shoppingListSubject.value;
+    const currentList = this.shoppingListSignal();
     if (!currentList) return;
     currentList.items.splice(index, 1);
     currentList.totalCost = currentList.items.reduce(
@@ -39,22 +43,24 @@ export class ShoppingService {
       0
     );
     currentList.completed = currentList.items.every((i) => i.purchased);
-    this.shoppingListSubject.next({ ...currentList });
-    this.storageService.setItem(`shopping-${currentList.weekId}`, currentList);
+    this.shoppingListSignal.set({ ...currentList });
+    this.shoppingListService.saveShoppingList(currentList);
   }
 
   private loadPurchases(): void {
-    const purchases =
-      this.storageService.getItem<Purchase[]>("purchases") || [];
-    this.purchasesSubject.next(purchases);
+    this.shoppingListService.getPurchases().then((purchases) => {
+      this.purchasesSignal.set(purchases);
+    });
   }
   // Permite agregar un ingrediente manualmente a la lista de compras
   private savePurchases(): void {
-    this.storageService.setItem("purchases", this.purchasesSubject.value);
+    this.purchasesSignal().forEach((purchase) => {
+      this.shoppingListService.savePurchase(purchase);
+    });
   }
 
   addManualItem(item: ShoppingItem): void {
-    const currentList = this.shoppingListSubject.value;
+    const currentList = this.shoppingListSignal();
     if (!currentList) return;
     currentList.items.push(item);
     currentList.totalCost = currentList.items.reduce(
@@ -62,8 +68,8 @@ export class ShoppingService {
       0
     );
     currentList.completed = currentList.items.every((i) => i.purchased);
-    this.shoppingListSubject.next({ ...currentList });
-    this.storageService.setItem(`shopping-${currentList.weekId}`, currentList);
+    this.shoppingListSignal.set({ ...currentList });
+    this.shoppingListService.saveShoppingList(currentList);
   }
 
   generateShoppingList(): ShoppingList | null {
@@ -75,22 +81,16 @@ export class ShoppingService {
     const requiredIngredients = new Map<string, number>();
 
     // Calculate required ingredients for all dishes in the menu
-    Object.keys(currentMenu.meals).forEach((day) => {
-      const dayMeals = currentMenu.meals[day];
-      Object.keys(dayMeals).forEach((mealType) => {
-        const dishIds = dayMeals[mealType as keyof typeof dayMeals];
-        dishIds.forEach((dishId) => {
-          const dish = this.dishesService.getDishById(dishId);
-          if (dish) {
-            dish.ingredients.forEach((ingredient) => {
-              const currentRequired =
-                requiredIngredients.get(ingredient.ingredientId) || 0;
-              requiredIngredients.set(
-                ingredient.ingredientId,
-                currentRequired + ingredient.quantity
-              );
-            });
-          }
+    Object.keys(currentMenu.days).forEach((day) => {
+      const dishes: Dish[] = currentMenu.days[day];
+      dishes.forEach((dish) => {
+        dish.ingredients.forEach((ingredient) => {
+          const currentRequired =
+            requiredIngredients.get(ingredient.ingredientId) || 0;
+          requiredIngredients.set(
+            ingredient.ingredientId,
+            currentRequired + ingredient.quantity
+          );
         });
       });
     });
@@ -126,26 +126,26 @@ export class ShoppingService {
       createdAt: new Date(),
     };
 
-    this.shoppingListSubject.next(shoppingList);
-    this.storageService.setItem(`shopping-${currentMenu.week}`, shoppingList);
+    this.shoppingListSignal.set(shoppingList);
+    this.shoppingListService.saveShoppingList(shoppingList);
 
     return shoppingList;
   }
 
   toggleItemPurchased(itemIndex: number): void {
-    const currentList = this.shoppingListSubject.value;
+    const currentList = this.shoppingListSignal();
     if (!currentList) return;
 
     currentList.items[itemIndex].purchased =
       !currentList.items[itemIndex].purchased;
     currentList.completed = currentList.items.every((item) => item.purchased);
 
-    this.shoppingListSubject.next({ ...currentList });
-    this.storageService.setItem(`shopping-${currentList.weekId}`, currentList);
+    this.shoppingListSignal.set({ ...currentList });
+    this.shoppingListService.saveShoppingList(currentList);
   }
 
   completePurchase(): Purchase | null {
-    const shoppingList = this.shoppingListSubject.value;
+    const shoppingList = this.shoppingListSignal();
     if (!shoppingList || !shoppingList.completed) return null;
 
     const purchasedItems = shoppingList.items
@@ -182,31 +182,30 @@ export class ShoppingService {
     this.inventoryService.addToInventory(inventoryItems);
 
     // Save purchase
-    const currentPurchases = this.purchasesSubject.value;
+    const currentPurchases = this.purchasesSignal();
     currentPurchases.push(purchase);
-    this.purchasesSubject.next([...currentPurchases]);
+    this.purchasesSignal.set([...currentPurchases]);
     this.savePurchases();
 
     // Limpiar la lista de compras después de completar
-    this.shoppingListSubject.next(null);
-    this.storageService.setItem(`shopping-${shoppingList.weekId}`, null);
+    this.shoppingListSignal.set(null);
+    // Si necesitas eliminar la lista, usa el servicio DexieJS
+    // await this.shoppingListService.deleteShoppingList(shoppingList.id);
 
     return purchase;
   }
 
   getPurchases(): Purchase[] {
-    return this.purchasesSubject.value;
+    return this.purchasesSignal();
   }
 
-  exportWeeklyData(week: string): WeeklyData | null {
-    const menu = this.menuService.getMenuForWeek(week);
+  async exportWeeklyData(week: string): Promise<WeeklyData | null> {
+    const menu = await this.menuService.getMenuForWeek(week);
     const inventory = this.inventoryService.getInventory();
-    const shoppingList = this.storageService.getItem<ShoppingList>(
+    const shoppingList = await this.shoppingListService.getShoppingList(
       `shopping-${week}`
     );
-    const purchases = this.purchasesSubject.value.filter(
-      (p) => p.weekId === week
-    );
+    const purchases = this.purchasesSignal().filter((p) => p.weekId === week);
 
     if (!menu) return null;
 
@@ -229,7 +228,8 @@ export class ShoppingService {
   importWeeklyData(data: WeeklyData): boolean {
     try {
       // Save menu
-      this.storageService.setItem(`menu-${data.week}`, data.menu);
+      // Guardar el menú usando el método adecuado
+      this.weeklyMenuService.saveMenu(data.menu);
 
       // Update inventory (merge with existing)
       const currentInventory = this.inventoryService.getInventory();
@@ -244,18 +244,18 @@ export class ShoppingService {
 
       // Save shopping list
       if (data.shoppingList.id) {
-        this.storageService.setItem(`shopping-${data.week}`, data.shoppingList);
+        this.shoppingListService.saveShoppingList(data.shoppingList);
       }
 
       // Add purchases
-      const currentPurchases = this.purchasesSubject.value;
+      const currentPurchases = this.purchasesSignal();
       const newPurchases = [...currentPurchases];
       data.purchases.forEach((purchase) => {
         if (!newPurchases.find((p) => p.id === purchase.id)) {
           newPurchases.push(purchase);
         }
       });
-      this.purchasesSubject.next(newPurchases);
+      this.purchasesSignal.set(newPurchases);
       this.savePurchases();
 
       // Load the imported week as current
