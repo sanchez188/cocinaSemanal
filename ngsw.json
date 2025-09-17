@@ -1,6 +1,6 @@
 {
   "configVersion": 1,
-  "timestamp": 1758152876704,
+  "timestamp": 1758153240404,
   "index": "https://sanchez188/cocinaSemanal/index.html",
   "assetGroups": [
     {
@@ -12,7 +12,8 @@
       },
       "urls": [
         "https://sanchez188/cocinaSemanal/index.html",
-        "https://sanchez188/cocinaSemanal/main-UTFFE27O.js",
+        "https://sanchez188/cocinaSemanal/main-6NBD5KBE.js",
+        "https://sanchez188/cocinaSemanal/manifest.json",
         "https://sanchez188/cocinaSemanal/polyfills-5CFQRCPP.js",
         "https://sanchez188/cocinaSemanal/styles-GZJULOJB.css"
       ],
@@ -25,14 +26,18 @@
       "cacheQueryOptions": {
         "ignoreVary": true
       },
-      "urls": [],
+      "urls": [
+        "https://sanchez188/cocinaSemanal/assets/compras.png"
+      ],
       "patterns": []
     }
   ],
   "dataGroups": [],
   "hashTable": {
-    "https://sanchez188/cocinaSemanal/index.html": "019a84fb31b097a7e24c6b4de4fd82618bed98f7",
-    "https://sanchez188/cocinaSemanal/main-UTFFE27O.js": "0440335906691d38a6b4f56145f2a526117ceb5a",
+    "https://sanchez188/cocinaSemanal/assets/compras.png": "f2a8a70ad393077bcb01e45b5501a33ed6d9ffd4",
+    "https://sanchez188/cocinaSemanal/index.html": "4b1821c9da4567b8c190ac956c5642b278adbe4a",
+    "https://sanchez188/cocinaSemanal/main-6NBD5KBE.js": "660d3ce72d472baf4b7c8254f3b790f7cea38a18",
+    "https://sanchez188/cocinaSemanal/manifest.json": "b1c6b53e965b276b931e27721a526c04fd49f573",
     "https://sanchez188/cocinaSemanal/polyfills-5CFQRCPP.js": "f2241e9a25858f895ce299d15f6f22e849e2fd72",
     "https://sanchez188/cocinaSemanal/styles-GZJULOJB.css": "b1e559a0d6f868ca992c31a0eba88988a2818600"
   },

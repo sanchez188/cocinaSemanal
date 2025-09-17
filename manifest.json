@@ -1,0 +1,17 @@
+{
+  "name": "Lista de Compras",
+  "short_name": "Compras",
+  "start_url": "/cocinaSemanal/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "description": "App para gestionar inventario y lista de compras semanal.",
+  "icons": [
+    {
+      "src": "/cocinaSemanal/assets/compras.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
