@@ -1,7 +1,7 @@
 {
   "name": "Lista de Compras",
   "short_name": "Compras",
-  "start_url": ".",
+  "start_url": "/cocinaSemanal/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
@@ -9,13 +9,9 @@
   "icons": [
     {
       "src": "assets/compras.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "assets/compras.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
