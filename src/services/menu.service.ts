@@ -117,18 +117,16 @@ export class MenuService {
     const dish = await this.dishesService.getDishById(dishId);
     let warning = false;
     let missingIngredients: string[] = [];
+
     if (dish) {
-      // Consume ingredientes y obtiene faltantes
-      const missingIds = this.inventoryService.consumeIngredients(
+      const missingIds = await this.inventoryService.consumeIngredients(
         dish.ingredients
       );
       if (missingIds.length > 0) {
         warning = true;
-        // Mapear a nombres legibles
+        const inventory = await this.inventoryService.getInventory();
         missingIngredients = missingIds.map((id) => {
-          const inv = this.inventoryService
-            .getInventory()
-            .find((i) => i.id === id);
+          const inv = inventory.find((i) => i.id === id);
           return inv ? inv.name : id;
         });
       }
@@ -150,6 +148,7 @@ export class MenuService {
         await this.saveMenu(currentMenu);
       }
     }
+
     return { warning, missingIngredients };
   }
 
@@ -173,7 +172,7 @@ export class MenuService {
       // Devuelve ingredientes al inventario
       const dish = dayArray[index];
       if (dish) {
-        this.inventoryService.addToInventory(dish.ingredients);
+        await this.inventoryService.addToInventory(dish.ingredients);
       }
       dayArray.splice(index, 1);
       // Elimina advertencia si existe

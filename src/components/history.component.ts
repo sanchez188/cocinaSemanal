@@ -1,4 +1,4 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, inject, OnInit, signal } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { ShoppingService } from "../services/shopping.service";
@@ -138,10 +138,24 @@ import { Purchase, WeeklyData } from "../models/interfaces";
                     <span>\${{ item.totalPrice.toFixed(2) }}</span>
                   </div>
                 </div>
+                
+                <details class="mt-3">
+                  <summary class="cursor-pointer text-blue-600 hover:text-blue-800 text-sm">Ver detalles</summary>
+                  <div class="mt-3 pl-4 border-l-2 border-gray-200">
+                    <div class="grid gap-2">
+                      @for (item of purchase.items; track item.ingredientId) {
+                        <div class="flex justify-between text-sm">
+                          <span>{{ item.name }} ({{ item.quantity }} {{ item.unit }})</span>
+                          <span>\${{ item.totalPrice.toFixed(2) }}</span>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </details>
               </div>
-            </details>
+            }
           </div>
-        </div>
+        }
       </div>
 
       <!-- Statistics -->
@@ -182,10 +196,10 @@ import { Purchase, WeeklyData } from "../models/interfaces";
   `,
 })
 export class HistoryComponent implements OnInit {
-  purchases: Purchase[] = [];
-  selectedFile: File | null = null;
+  private shoppingService = inject(ShoppingService);
 
-  constructor(private shoppingService: ShoppingService) {}
+  purchases = signal<Purchase[]>([]);
+  selectedFile = signal<File | null>(null);
 
   ngOnInit(): void {
     this.purchases = this.shoppingService
@@ -194,7 +208,7 @@ export class HistoryComponent implements OnInit {
     // Si quieres reactividad automática en la plantilla, usa signals directamente en el template
   }
 
-  exportCurrentWeek(): void {
+  async exportCurrentWeek(): Promise<void> {
     const currentWeek = this.getCurrentWeek();
     const weeklyData = this.shoppingService.exportWeeklyData(currentWeek);
 
@@ -209,19 +223,20 @@ export class HistoryComponent implements OnInit {
       link.click();
 
       URL.revokeObjectURL(url);
+      this.showSuccessMessage('Datos exportados exitosamente');
     } else {
       alert("No hay datos disponibles para exportar");
     }
   }
 
-  onFileSelected(event: any): void {
+  async onFileSelected(event: any): Promise<void> {
     const file = event.target.files?.[0];
     if (!file) return;
 
     this.selectedFile = file;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const content = e.target?.result as string;
         const weeklyData: WeeklyData = JSON.parse(content);
@@ -270,8 +285,9 @@ export class HistoryComponent implements OnInit {
   }
 
   getAverageSpent(): number {
-    if (this.purchases.length === 0) return 0;
-    return this.getTotalSpent() / this.purchases.length;
+    const purchaseList = this.purchases();
+    if (purchaseList.length === 0) return 0;
+    return this.getTotalSpent() / purchaseList.length;
   }
 
   getTotalItems(): number {

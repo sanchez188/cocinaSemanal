@@ -23,13 +23,16 @@ interface PredefinedMenuWeek {
   imports: [CommonModule, FormsModule],
   template: `
     <div class="p-6">
-      <h2 class="text-2xl font-bold mb-4">Menús Semanales Predefinidos</h2>
-      <div class="mb-6">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h2 class="text-2xl font-bold text-gray-800">Menús Semanales Predefinidos</h2>
+          <p class="text-gray-600">Crea y gestiona plantillas de menús reutilizables</p>
+        </div>
         <button
-          (click)="showAddForm = !showAddForm"
-          class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+          (click)="showAddForm.set(!showAddForm())"
+          class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
         >
-          {{ showAddForm ? "Cancelar" : "+ Nuevo Menú Predefinido" }}
+          {{ showAddForm() ? "Cancelar" : "+ Nuevo Menú Predefinido" }}
         </button>
       </div>
       <div
@@ -62,11 +65,38 @@ interface PredefinedMenuWeek {
                 @for (dish of dishesFilteredByType(type); track dish.id) {
                 <option [ngValue]="dish.id">{{ dish.name }}</option>
                 }
-              </select>
+              </div>
             </div>
-            }
+          }
+
+          <div class="flex space-x-3">
+            <button
+              (click)="saveNewMenu()"
+              [disabled]="!newMenuName.trim()"
+              class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Guardar Menú
+            </button>
+            <button
+              (click)="cancelForm()"
+              class="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+            >
+              Cancelar
+            </button>
           </div>
         </div>
+      }
+
+      <!-- Predefined Menus List -->
+      <div class="space-y-4">
+        @if (predefinedMenus().length === 0) {
+          <div class="text-center py-12">
+            <div class="text-gray-400 text-6xl mb-4">📋</div>
+            <h3 class="text-xl font-semibold text-gray-700 mb-2">
+              No hay menús predefinidos
+            </h3>
+            <p class="text-gray-500">Crea tu primer menú predefinido para reutilizarlo</p>
+          </div>
         }
         <button
           (click)="editingMenu ? saveEditMenu() : saveNewMenu()"
@@ -108,19 +138,7 @@ interface PredefinedMenuWeek {
               Eliminar
             </button>
           </div>
-        </div>
-        <div class="grid grid-cols-2 gap-2">
-          <div *ngFor="let day of daysOfWeek">
-            <span class="font-medium">{{ day }}:</span>
-            <span>
-              <ng-container *ngFor="let dish of menu.days[day]">
-                {{ dish.name
-                }}<span *ngIf="dish.category"> ({{ dish.category }})</span
-                ><span *ngIf="!isLastDish(menu.days[day], dish)">, </span>
-              </ng-container>
-            </span>
-          </div>
-        </div>
+        }
       </div>
     </div>
   `,
@@ -192,10 +210,22 @@ export class MenusPredefinidosComponent implements OnInit {
   daysOfWeek = DAYS_OF_WEEK;
   dishes: Dish[] = [];
 
-  dishesFilteredByType(type: string): Dish[] {
-    if (!type) return this.dishes;
-    return this.dishes.filter((d) => d.category === type);
-  }
+  predefinedMenus = signal<PredefinedMenu[]>([]);
+  dishes = signal<Dish[]>([]);
+  showAddForm = signal(false);
+  newMenuName = "";
+  newMenuDays = signal<{ [day: string]: { [type: string]: string | undefined } }>({});
+
+  mealTypes = ["desayuno", "almuerzo", "cafe", "cena"];
+  daysOfWeek = [
+    "lunes",
+    "martes",
+    "miercoles",
+    "jueves",
+    "viernes",
+    "sabado",
+    "domingo",
+  ];
 
   async ngOnInit() {
     await this.migrateLocalStorageMenus();
@@ -253,12 +283,22 @@ export class MenusPredefinidosComponent implements OnInit {
           }
         }
       }
+
+      await this.db.predefinedMenus.add(menu);
+      await this.loadMenus();
+      this.cancelForm();
+      
+      // Show success message
+      this.showSuccessMessage(`Menú "${menu.name}" guardado exitosamente`);
+    } catch (error) {
+      console.error('Error saving menu:', error);
+      alert('Error al guardar el menú. Inténtalo de nuevo.');
     }
     await this.predefinedMenuService.saveMenu(menu);
     this.predefinedMenus = await this.predefinedMenuService.getAllMenus();
     this.showAddForm = false;
     this.newMenuName = "";
-    this.newMenuDays = {};
+    this.initializeNewMenuDays();
   }
 
   async deleteMenu(id: string) {
@@ -306,9 +346,5 @@ export class MenusPredefinidosComponent implements OnInit {
     );
     weeklyMenuChanged$.next(dateStr);
     alert(`Menú "${menu.name}" copiado para la semana actual.`);
-  }
-
-  isLastDish(dishes: Dish[], dish: Dish): boolean {
-    return dishes[dishes.length - 1] === dish;
   }
 }

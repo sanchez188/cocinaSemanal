@@ -37,7 +37,7 @@ export class InventoryService {
   /**
    * Agrega múltiples ingredientes al inventario, soportando unidad y paquete.
    */
-  batchAddIngredients(
+  async batchAddIngredients(
     items: Array<{
       name: string;
       unit: string;
@@ -47,9 +47,9 @@ export class InventoryService {
       priceTotal?: number;
       category?: string;
     }>
-  ): void {
-    for (const item of items) {
-      const ingredient: Ingredient = {
+  ): Promise<void> {
+    try {
+      const ingredients: Ingredient[] = items.map((item) => ({
         id:
           item.name.toLowerCase().replace(/\s+/g, "-") +
           "-" +
@@ -61,8 +61,12 @@ export class InventoryService {
         priceTotal: item.isPackage ? item.priceTotal || 0 : undefined,
         isPackage: !!item.isPackage,
         category: item.category || "otros",
-      };
-      this.addIngredient(ingredient);
+      }));
+
+      await this.db.ingredients.bulkAdd(ingredients);
+      await this.loadInventory();
+    } catch (error) {
+      console.error("Error batch adding ingredients:", error);
     }
   }
   private inventorySignal: WritableSignal<Ingredient[]> = signal([]);

@@ -1,9 +1,8 @@
-import { Injectable } from "@angular/core";
 import { signal, WritableSignal } from "@angular/core";
-import { Dish } from "../models/interfaces";
 import { v4 as uuidv4 } from "uuid";
 import { CocinaSemanalDB } from "./db.service";
-import { StorageService } from "./storage.service";
+import { Injectable } from "@angular/core";
+import { Dish } from "../models/interfaces";
 
 @Injectable({
   providedIn: "root",
@@ -12,27 +11,12 @@ export class DishesService {
   private dishesSignal: WritableSignal<Dish[]> = signal([]);
   public dishes = this.dishesSignal;
 
-  constructor(
-    private db: CocinaSemanalDB,
-    private storageService: StorageService
-  ) {
+  constructor(private db: CocinaSemanalDB) {
     this.init();
   }
 
   private async init(): Promise<void> {
-    await this.migrateFromLocalStorageIfNeeded();
     await this.loadDishes();
-  }
-
-  private async migrateFromLocalStorageIfNeeded(): Promise<void> {
-    const dexieCount = await this.db.dishes.count();
-    if (dexieCount === 0) {
-      const localDishes = this.storageService.getItem<Dish[]>("dishes") || [];
-      if (localDishes.length > 0) {
-        await this.db.dishes.bulkPut(localDishes);
-        this.storageService.removeItem("dishes");
-      }
-    }
   }
 
   private async loadDishes(): Promise<void> {

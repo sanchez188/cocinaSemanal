@@ -37,6 +37,7 @@ export class ShoppingService {
   public removeItem(index: number): void {
     const currentList = this.shoppingListSignal();
     if (!currentList) return;
+
     currentList.items.splice(index, 1);
     currentList.totalCost = currentList.items.reduce(
       (total, i) => total + i.quantity * i.pricePerUnit,
@@ -62,6 +63,7 @@ export class ShoppingService {
   addManualItem(item: ShoppingItem): void {
     const currentList = this.shoppingListSignal();
     if (!currentList) return;
+
     currentList.items.push(item);
     currentList.totalCost = currentList.items.reduce(
       (total, i) => total + i.quantity * i.pricePerUnit,
@@ -72,9 +74,9 @@ export class ShoppingService {
     this.shoppingListService.saveShoppingList(currentList);
   }
 
-  generateShoppingList(): ShoppingList | null {
+  async generateShoppingList(): Promise<ShoppingList | null> {
     const currentMenu = this.menuService.getCurrentMenu();
-    const inventory = this.inventoryService.getInventory();
+    const inventory = await this.inventoryService.getInventory();
 
     if (!currentMenu) return null;
 
@@ -96,8 +98,8 @@ export class ShoppingService {
     });
 
     // Check what we need to buy (subtract current inventory)
-    const shoppingItems: any[] = [];
-    requiredIngredients.forEach((required, ingredientId) => {
+    const shoppingItems: ShoppingItem[] = [];
+    for (const [ingredientId, required] of requiredIngredients) {
       const inventoryItem = inventory.find((item) => item.id === ingredientId);
       const available = inventoryItem ? inventoryItem.quantity : 0;
       const needed = Math.max(0, required - available);
@@ -112,7 +114,7 @@ export class ShoppingService {
           purchased: false,
         });
       }
-    });
+    }
 
     const shoppingList: ShoppingList = {
       id: `shopping-${currentMenu.week}`,
@@ -170,7 +172,7 @@ export class ShoppingService {
       date: new Date(),
     };
 
-    // Add purchased items to inventory (con toda la info)
+    // Add purchased items to inventory
     const inventoryItems = purchasedItems.map((item) => ({
       ingredientId: item.ingredientId,
       name: item.name,
@@ -179,7 +181,7 @@ export class ShoppingService {
       pricePerUnit: item.pricePerUnit,
     }));
 
-    this.inventoryService.addToInventory(inventoryItems);
+    await this.inventoryService.addToInventory(inventoryItems);
 
     // Save purchase
     const currentPurchases = this.purchasesSignal();
