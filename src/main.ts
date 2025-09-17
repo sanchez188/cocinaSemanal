@@ -1,4 +1,4 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, OnInit, isDevMode } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { bootstrapApplication } from "@angular/platform-browser";
 import { HeaderComponent } from "./components/header.component";
@@ -10,6 +10,7 @@ import { HistoryComponent } from "./components/history.component";
 import { InventoryService } from "./services/inventory.service";
 import { DishesService } from "./services/dishes.service";
 import { InventoryManagementComponent } from "./components/inventory-management.component";
+import { provideServiceWorker } from "@angular/service-worker";
 
 @Component({
   selector: "app-root",
@@ -160,4 +161,15 @@ export class App implements OnInit {
   }
 }
 
-bootstrapApplication(App);
+bootstrapApplication(App, {
+  providers: [
+    provideServiceWorker("ngsw-worker.js", {
+      enabled: !isDevMode(),
+      registrationStrategy: "registerWhenStable:30000",
+    }),
+    provideServiceWorker("ngsw-worker.js", {
+      enabled: !isDevMode(),
+      registrationStrategy: "registerWhenStable:30000",
+    }),
+  ],
+});
