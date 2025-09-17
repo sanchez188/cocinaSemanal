@@ -1,7 +1,7 @@
 {
   "configVersion": 1,
-  "timestamp": 1758128623811,
-  "index": "https://sanchez188.github.io/cocinaSemanal/index.html",
+  "timestamp": 1758129397144,
+  "index": "https://sanchez188/cocinaSemanal/index.html",
   "assetGroups": [
     {
       "name": "app",
@@ -11,10 +11,10 @@
         "ignoreVary": true
       },
       "urls": [
-        "https://sanchez188.github.io/cocinaSemanal/index.html",
-        "https://sanchez188.github.io/cocinaSemanal/main-YURHHHON.js",
-        "https://sanchez188.github.io/cocinaSemanal/polyfills-5CFQRCPP.js",
-        "https://sanchez188.github.io/cocinaSemanal/styles-CTJK4SCG.css"
+        "https://sanchez188/cocinaSemanal/index.html",
+        "https://sanchez188/cocinaSemanal/main-SQ4CTDJA.js",
+        "https://sanchez188/cocinaSemanal/polyfills-5CFQRCPP.js",
+        "https://sanchez188/cocinaSemanal/styles-CTJK4SCG.css"
       ],
       "patterns": []
     },
@@ -31,10 +31,10 @@
   ],
   "dataGroups": [],
   "hashTable": {
-    "https://sanchez188.github.io/cocinaSemanal/index.html": "1c19719028d4d3d13436e70f0f842fe3d7d375e4",
-    "https://sanchez188.github.io/cocinaSemanal/main-YURHHHON.js": "082ff5c229fe5d0dae38bc8362df3c02a2821176",
-    "https://sanchez188.github.io/cocinaSemanal/polyfills-5CFQRCPP.js": "f2241e9a25858f895ce299d15f6f22e849e2fd72",
-    "https://sanchez188.github.io/cocinaSemanal/styles-CTJK4SCG.css": "a3a4af9fc529099c3c89aa765d23a93fb9b6d5cc"
+    "https://sanchez188/cocinaSemanal/index.html": "0fbb02d390ae72a6a7fc7ccac156d700d3c01c90",
+    "https://sanchez188/cocinaSemanal/main-SQ4CTDJA.js": "b8356e6308922afe96140639431f951a360a2c1b",
+    "https://sanchez188/cocinaSemanal/polyfills-5CFQRCPP.js": "f2241e9a25858f895ce299d15f6f22e849e2fd72",
+    "https://sanchez188/cocinaSemanal/styles-CTJK4SCG.css": "a3a4af9fc529099c3c89aa765d23a93fb9b6d5cc"
   },
   "navigationUrls": [
     {
