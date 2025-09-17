@@ -11,6 +11,7 @@ import { InventoryService } from "./services/inventory.service";
 import { DishesService } from "./services/dishes.service";
 import { InventoryManagementComponent } from "./components/inventory-management.component";
 import { provideServiceWorker } from "@angular/service-worker";
+import { MenusPredefinidosComponent } from "./components/menus-predefinidos.component";
 
 @Component({
   selector: "app-root",
@@ -24,6 +25,7 @@ import { provideServiceWorker } from "@angular/service-worker";
     InventoryManagementComponent,
     ShoppingListComponent,
     HistoryComponent,
+    MenusPredefinidosComponent,
   ],
   template: `
     <div class="min-h-screen bg-gray-50">
@@ -34,15 +36,20 @@ import { provideServiceWorker } from "@angular/service-worker";
       ></app-navigation>
 
       <main class="container mx-auto max-w-7xl">
-        <app-weekly-menu *ngIf="activeTab === 'menu'"></app-weekly-menu>
-        <app-dishes-management
-          *ngIf="activeTab === 'dishes'"
-        ></app-dishes-management>
-        <app-inventory-management
-          *ngIf="activeTab === 'inventory'"
-        ></app-inventory-management>
-        <app-shopping-list *ngIf="activeTab === 'shopping'"></app-shopping-list>
-        <app-history *ngIf="activeTab === 'history'"></app-history>
+        @switch (activeTab) { @case ('predefined') {
+        <app-menus-predefinidos></app-menus-predefinidos>
+        } @case ('dishes') {
+        <app-dishes-management></app-dishes-management>
+        } @case ('inventory') {
+        <app-inventory-management></app-inventory-management>
+        } @case ('shopping') {
+        <app-shopping-list></app-shopping-list>
+        } @case ('history') {
+        <app-history></app-history>
+        } @default {
+
+        <app-weekly-menu></app-weekly-menu>
+        } }
       </main>
     </div>
   `,

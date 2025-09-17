@@ -320,16 +320,33 @@ export class InventoryService {
   }
 
   addToInventory(
-    ingredients: { ingredientId: string; quantity: number }[]
+    ingredients: {
+      ingredientId: string;
+      name?: string;
+      quantity: number;
+      unit?: string;
+      pricePerUnit?: number;
+    }[]
   ): void {
     const currentInventory = [...this.inventorySubject.value];
 
     for (const ingredient of ingredients) {
-      const inventoryItem = currentInventory.find(
+      let inventoryItem = currentInventory.find(
         (item) => item.id === ingredient.ingredientId
       );
       if (inventoryItem) {
         inventoryItem.quantity += ingredient.quantity;
+      } else {
+        // Agregar nuevo producto al inventario si no existe
+        inventoryItem = {
+          id: ingredient.ingredientId,
+          name: ingredient.name || "Nuevo producto",
+          quantity: ingredient.quantity,
+          unit: ingredient.unit || "unidades",
+          pricePerUnit: ingredient.pricePerUnit || 0,
+          category: "otros",
+        };
+        currentInventory.push(inventoryItem);
       }
     }
 

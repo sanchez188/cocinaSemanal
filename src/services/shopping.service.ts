@@ -170,10 +170,13 @@ export class ShoppingService {
       date: new Date(),
     };
 
-    // Add purchased items to inventory
+    // Add purchased items to inventory (con toda la info)
     const inventoryItems = purchasedItems.map((item) => ({
       ingredientId: item.ingredientId,
+      name: item.name,
       quantity: item.quantity,
+      unit: item.unit,
+      pricePerUnit: item.pricePerUnit,
     }));
 
     this.inventoryService.addToInventory(inventoryItems);
@@ -183,6 +186,10 @@ export class ShoppingService {
     currentPurchases.push(purchase);
     this.purchasesSubject.next([...currentPurchases]);
     this.savePurchases();
+
+    // Limpiar la lista de compras después de completar
+    this.shoppingListSubject.next(null);
+    this.storageService.setItem(`shopping-${shoppingList.weekId}`, null);
 
     return purchase;
   }

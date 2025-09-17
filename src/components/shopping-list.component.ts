@@ -133,6 +133,7 @@ export class ShoppingListComponent implements OnInit {
           2
         )}\nInventario actualizado.`
       );
+      this.shoppingList = null; // Limpiar la lista para evitar repetir compra
     }
   }
 

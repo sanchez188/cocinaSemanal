@@ -29,6 +29,7 @@ export class NavigationComponent {
 
   tabs = [
     { id: "menu", label: "Menú Semanal", icon: "📅" },
+    { id: "predefined", label: "Menú Predefinidos", icon: "📅" },
     { id: "dishes", label: "Platillos", icon: "🍲" },
     { id: "inventory", label: "Inventario", icon: "📦" },
     { id: "shopping", label: "Lista de Compras", icon: "🛒" },
