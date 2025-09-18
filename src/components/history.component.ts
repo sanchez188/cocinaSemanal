@@ -1,3 +1,5 @@
+import { startOfWeek } from "date-fns";
+import { es } from "date-fns/locale";
 import { Component, inject, OnInit, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ShoppingService } from "../services/shopping.service";
@@ -70,9 +72,7 @@ export class HistoryComponent implements OnInit {
   }
 
   private getCurrentWeek(): string {
-    const today = new Date();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - today.getDay() + 1);
+    const monday = startOfWeek(new Date(), { weekStartsOn: 1, locale: es });
     return monday.toISOString().split("T")[0];
   }
 

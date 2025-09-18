@@ -8,6 +8,8 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { Dish, DAYS_OF_WEEK } from "../models/interfaces";
 import { DishesService } from "../services/dishes.service";
+import { startOfWeek } from "date-fns";
+import { es } from "date-fns/locale";
 
 export const weeklyMenuChanged$ = new Subject<string>();
 interface PredefinedMenuWeek {
@@ -313,21 +315,15 @@ export class MenusPredefinidosComponent implements OnInit {
   }
 
   async useMenu(menu: PredefinedMenuWeek) {
-    // Calcular el primer día (lunes) de la semana actual
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0=domingo, 1=lunes, ...
-    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - diff);
-    const yyyy = monday.getFullYear();
-    const mm = String(monday.getMonth() + 1).padStart(2, "0");
-    const dd = String(monday.getDate()).padStart(2, "0");
-    const dateStr = `${yyyy}-${mm}-${dd}`;
+    // Calcular el primer día (lunes) de la semana actual usando date-fns
+    const monday = startOfWeek(new Date(), { weekStartsOn: 1, locale: es });
+    const dateStr = monday.toISOString().split("T")[0];
     const key = `menu-${dateStr}`;
     let weeklyMenu = await this.weeklyMenuService.getMenu(key);
     let menuObj;
     if (weeklyMenu) {
       menuObj = weeklyMenu;
+      menuObj.week = dateStr; // Asegurar que la semana es lunes
     } else {
       menuObj = { id: key, week: dateStr, days: {} };
     }
@@ -344,7 +340,18 @@ export class MenusPredefinidosComponent implements OnInit {
       );
       menuObj.days[day] = match ? menu.days[match] : [];
     }
-    debugger;
+    // Restaurar inventario según el menú anterior de la semana
+    const previousMenu = await this.menuService.getMenuForWeek(dateStr);
+    if (previousMenu) {
+      // Sumar ingredientes usados en el menú anterior
+      await this.menuService.inventoryServicePublic.recalculateInventoryFromMenu(
+        { days: {} }
+      ); // Primero restaurar todo
+      await this.menuService.inventoryServicePublic.batchAddIngredientsFromMenu(
+        previousMenu
+      );
+    }
+    // Guardar el nuevo menú
     await this.weeklyMenuService.saveMenu(menuObj);
     await this.menuService.loadWeekMenu(dateStr);
     // Forzar actualización en WeeklyMenuComponent, pasando la semana seleccionada
@@ -356,6 +363,17 @@ export class MenusPredefinidosComponent implements OnInit {
       menuObj
     );
     weeklyMenuChanged$.next(dateStr);
-    alert(`Menú "${menu.name}" copiado para la semana actual.`);
+    // Mostrar diálogo estilizado con Tailwind
+    const dialog = document.createElement("div");
+    dialog.className =
+      "fixed top-8 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-6 py-4 rounded-lg shadow-lg z-50 text-lg font-semibold transition-all duration-300";
+    dialog.textContent = `Menú \"${menu.name}\" copiado para la semana actual.`;
+    document.body.appendChild(dialog);
+    setTimeout(() => {
+      dialog.style.opacity = "0";
+      setTimeout(() => {
+        document.body.removeChild(dialog);
+      }, 300);
+    }, 3000);
   }
 }

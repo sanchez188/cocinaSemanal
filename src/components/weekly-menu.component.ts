@@ -5,6 +5,9 @@ import { MenuService } from "../services/menu.service";
 import { weeklyMenuChanged$ } from "./menus-predefinidos.component";
 import { DishesService } from "../services/dishes.service";
 import { WeeklyMenu, Dish, DAYS_OF_WEEK } from "../models/interfaces";
+import { startOfWeek } from "date-fns";
+import { es } from "date-fns/locale";
+import { addDays, format, parseISO } from "date-fns";
 
 @Component({
   selector: "app-weekly-menu",
@@ -156,12 +159,8 @@ export class WeeklyMenuComponent implements OnInit {
   }
 
   getCurrentWeek(): string {
-    const today = new Date();
-    // Calcular el lunes de la semana actual correctamente
-    const dayOfWeek = today.getDay(); // 0=domingo, 1=lunes, ...
-    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - diff);
+    // Usar date-fns para obtener el lunes de la semana actual
+    const monday = startOfWeek(new Date(), { weekStartsOn: 1, locale: es });
     return monday.toISOString().split("T")[0];
   }
 
@@ -245,12 +244,12 @@ export class WeeklyMenuComponent implements OnInit {
   }
 
   formatWeekDate(week: string): string {
-    const date = new Date(week);
-    const endDate = new Date(date);
-    endDate.setDate(date.getDate() + 6);
-
-    return `${date.toLocaleDateString("es-ES")} - ${endDate.toLocaleDateString(
-      "es-ES"
+    const date = parseISO(week);
+    const endDate = addDays(date, 6);
+    return `${format(date, "dd/MM/yyyy", { locale: es })} - ${format(
+      endDate,
+      "dd/MM/yyyy",
+      { locale: es }
     )}`;
   }
 

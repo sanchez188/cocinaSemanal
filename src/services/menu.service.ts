@@ -4,6 +4,8 @@ import { WeeklyMenuService } from "./weekly-menu.service";
 import { InventoryService } from "./inventory.service";
 import { DishesService } from "./dishes.service";
 import { signal, WritableSignal } from "@angular/core";
+import { startOfWeek } from "date-fns";
+import { es } from "date-fns/locale";
 
 @Injectable({
   providedIn: "root",
@@ -59,9 +61,8 @@ export class MenuService {
   }
 
   private getCurrentWeek(): string {
-    const today = new Date();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - today.getDay() + 1);
+    // Usar date-fns para obtener el lunes de la semana actual
+    const monday = startOfWeek(new Date(), { weekStartsOn: 1, locale: es });
     return monday.toISOString().split("T")[0];
   }
 

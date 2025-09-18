@@ -8,6 +8,47 @@ import { CocinaSemanalDB, InventoryItem } from "./db.service";
 })
 export class InventoryService {
   /**
+   * Suma todos los ingredientes usados en un menú y los devuelve al inventario.
+   */
+  async batchAddIngredientsFromMenu(menu: {
+    days: { [day: string]: any[] };
+  }): Promise<void> {
+    const toAdd: {
+      [id: string]: {
+        quantity: number;
+        name?: string;
+        unit?: string;
+        pricePerUnit?: number;
+      };
+    } = {};
+    for (const day of Object.keys(menu.days)) {
+      for (const dish of menu.days[day]) {
+        if (dish.ingredients) {
+          for (const ing of dish.ingredients) {
+            if (!toAdd[ing.ingredientId]) {
+              toAdd[ing.ingredientId] = {
+                quantity: 0,
+                name: ing.name,
+                unit: ing.unit,
+                pricePerUnit: ing.pricePerUnit,
+              };
+            }
+            toAdd[ing.ingredientId].quantity += ing.quantity;
+          }
+        }
+      }
+    }
+    // Convertir a array y agregar al inventario
+    const addArray = Object.entries(toAdd).map(([ingredientId, data]) => ({
+      ingredientId,
+      name: data.name,
+      quantity: data.quantity,
+      unit: data.unit,
+      pricePerUnit: data.pricePerUnit,
+    }));
+    await this.addToInventory(addArray);
+  }
+  /**
    * Recalcula el inventario descontando los ingredientes usados en el menú semanal.
    */
   recalculateInventoryFromMenu(menu: { days: { [day: string]: any[] } }): void {
