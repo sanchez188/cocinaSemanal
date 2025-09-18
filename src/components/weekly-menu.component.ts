@@ -126,9 +126,6 @@ export class WeeklyMenuComponent implements OnInit {
   currentWeek = signal<string>("");
 
   constructor() {
-    window.addEventListener("menuUpdated", () => {
-      this.currentMenu.set(this.menuService.currentMenu());
-    });
     effect(() => {
       const menu = this.currentMenu();
       if (menu) {
@@ -137,7 +134,41 @@ export class WeeklyMenuComponent implements OnInit {
     });
   }
 
+  async handleMenuUpdated(event?: CustomEvent) {
+    // Si el evento tiene la semana, úsala; si no, usa la actual
+    let week = this.getCurrentWeek();
+    if (event && event.detail && event.detail.week) {
+      week = event.detail.week;
+    }
+    await this.menuService.loadWeekMenu(week);
+    const menu = this.menuService.currentMenu();
+    this.currentMenu.set(menu);
+    // Sincronizar selects visuales
+    if (menu) {
+      this.selectedDishes = {};
+      for (const day of this.days) {
+        for (const meal of this.meals) {
+          const dish = menu.days[day]?.find((d: Dish) => d.category === meal);
+          this.selectedDishes[day + "-" + meal] = dish ? dish.id : "";
+        }
+      }
+    }
+  }
+
+  getCurrentWeek(): string {
+    const today = new Date();
+    // Calcular el lunes de la semana actual correctamente
+    const dayOfWeek = today.getDay(); // 0=domingo, 1=lunes, ...
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - diff);
+    return monday.toISOString().split("T")[0];
+  }
+
   async ngOnInit(): Promise<void> {
+    window.addEventListener("menuUpdated", (e: Event) => {
+      this.handleMenuUpdated(e as CustomEvent);
+    });
     await this.menuService.loadCurrentWeekMenu?.();
     const menu = this.menuService.currentMenu();
     this.currentMenu.set(menu);
@@ -153,7 +184,17 @@ export class WeeklyMenuComponent implements OnInit {
     this.dishes.set(this.dishesService.dishes());
     weeklyMenuChanged$.subscribe(async (week: string) => {
       await this.menuService.loadWeekMenu(week);
-      this.currentMenu.set(this.menuService.currentMenu());
+      const menu = this.menuService.currentMenu();
+      this.currentMenu.set(menu);
+      if (menu) {
+        this.selectedDishes = {};
+        for (const day of this.days) {
+          for (const meal of this.meals) {
+            const dish = menu.days[day]?.find((d: Dish) => d.category === meal);
+            this.selectedDishes[day + "-" + meal] = dish ? dish.id : "";
+          }
+        }
+      }
     });
   }
 

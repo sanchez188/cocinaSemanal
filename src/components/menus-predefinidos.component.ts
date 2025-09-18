@@ -344,8 +344,13 @@ export class MenusPredefinidosComponent implements OnInit {
       );
       menuObj.days[day] = match ? menu.days[match] : [];
     }
+    debugger;
     await this.weeklyMenuService.saveMenu(menuObj);
     await this.menuService.loadWeekMenu(dateStr);
+    // Forzar actualización en WeeklyMenuComponent, pasando la semana seleccionada
+    window.dispatchEvent(
+      new CustomEvent("menuUpdated", { detail: { week: dateStr } })
+    );
     // Recalcular inventario según el menú copiado
     await this.menuService.inventoryServicePublic.recalculateInventoryFromMenu(
       menuObj

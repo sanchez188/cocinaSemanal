@@ -197,8 +197,26 @@ export class MenuService {
     if (!menu) {
       menu = this.initializeEmptyWeek(week);
       await this.saveMenu(menu);
+    } else {
+      // Cast para poder inicializar warnings sin error de tipo
+      const menuTyped = menu as WeeklyMenu & {
+        warnings?: {
+          [day: string]: {
+            [meal: string]: { [dishId: string]: string[] | null };
+          };
+        };
+      };
+      for (const day of DAYS_OF_WEEK) {
+        if (!menuTyped.days[day]) {
+          menuTyped.days[day] = [];
+        }
+      }
+      if (!menuTyped.warnings) {
+        menuTyped.warnings = {};
+      }
+      menu = menuTyped;
     }
-    this.currentMenuSignal.set(menu);
+    this.currentMenuSignal.set({ ...menu });
     // NO recalcular inventario aquí
   }
 }

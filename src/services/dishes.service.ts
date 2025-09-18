@@ -38,7 +38,6 @@ export class DishesService {
   }
 
   async addDish(dish: Dish): Promise<void> {
-    debugger;
     // Asegura que el platillo tenga un id único
     if (!dish.id || typeof dish.id !== "string" || dish.id.trim() === "") {
       dish.id = uuidv4();
