@@ -1,7 +1,7 @@
 {
   "configVersion": 1,
-  "timestamp": 1758208194172,
-  "index": "https://sanchez188/cocinaSemanal/index.html",
+  "timestamp": 1759338540723,
+  "index": "https://sanchez188.github.io/cocinaSemanal/index.html",
   "assetGroups": [
     {
       "name": "app",
@@ -11,11 +11,13 @@
         "ignoreVary": true
       },
       "urls": [
-        "https://sanchez188/cocinaSemanal/index.html",
-        "https://sanchez188/cocinaSemanal/main-OQZFVMWA.js",
-        "https://sanchez188/cocinaSemanal/manifest.json",
-        "https://sanchez188/cocinaSemanal/polyfills-5CFQRCPP.js",
-        "https://sanchez188/cocinaSemanal/styles-QKCBIRP6.css"
+        "https://sanchez188.github.io/cocinaSemanal/chunk-PZ5UXJ7I.js",
+        "https://sanchez188.github.io/cocinaSemanal/chunk-X2RIVRQM.js",
+        "https://sanchez188.github.io/cocinaSemanal/index.html",
+        "https://sanchez188.github.io/cocinaSemanal/main-YJF4DI5L.js",
+        "https://sanchez188.github.io/cocinaSemanal/manifest.json",
+        "https://sanchez188.github.io/cocinaSemanal/polyfills-5CFQRCPP.js",
+        "https://sanchez188.github.io/cocinaSemanal/styles-NVA3SGK4.css"
       ],
       "patterns": []
     },
@@ -27,19 +29,21 @@
         "ignoreVary": true
       },
       "urls": [
-        "https://sanchez188/cocinaSemanal/assets/compras.png"
+        "https://sanchez188.github.io/cocinaSemanal/assets/compras.png"
       ],
       "patterns": []
     }
   ],
   "dataGroups": [],
   "hashTable": {
-    "https://sanchez188/cocinaSemanal/assets/compras.png": "f2a8a70ad393077bcb01e45b5501a33ed6d9ffd4",
-    "https://sanchez188/cocinaSemanal/index.html": "297b9823326ac11ed3dab62709f54a2d6291debd",
-    "https://sanchez188/cocinaSemanal/main-OQZFVMWA.js": "69e01de949db57febcac653ab58d86153fdaab5f",
-    "https://sanchez188/cocinaSemanal/manifest.json": "b1c6b53e965b276b931e27721a526c04fd49f573",
-    "https://sanchez188/cocinaSemanal/polyfills-5CFQRCPP.js": "f2241e9a25858f895ce299d15f6f22e849e2fd72",
-    "https://sanchez188/cocinaSemanal/styles-QKCBIRP6.css": "8c93850a68c38da8c464be7200d78d3ee11b686c"
+    "https://sanchez188.github.io/cocinaSemanal/assets/compras.png": "f2a8a70ad393077bcb01e45b5501a33ed6d9ffd4",
+    "https://sanchez188.github.io/cocinaSemanal/chunk-PZ5UXJ7I.js": "7f1be3d2b3041f0263d896706bb29daaebf8e9e4",
+    "https://sanchez188.github.io/cocinaSemanal/chunk-X2RIVRQM.js": "ed9bd35648ea2e4cf94b8a092edad6393771bc82",
+    "https://sanchez188.github.io/cocinaSemanal/index.html": "85f9d8ed7a152d594bebb759c82bb4bcce4e6688",
+    "https://sanchez188.github.io/cocinaSemanal/main-YJF4DI5L.js": "5d213cf7e99a1f7d3ac308276fe5aa58dd03696b",
+    "https://sanchez188.github.io/cocinaSemanal/manifest.json": "b1c6b53e965b276b931e27721a526c04fd49f573",
+    "https://sanchez188.github.io/cocinaSemanal/polyfills-5CFQRCPP.js": "f2241e9a25858f895ce299d15f6f22e849e2fd72",
+    "https://sanchez188.github.io/cocinaSemanal/styles-NVA3SGK4.css": "34bbf1b71ef712642e4dc8ea7f7eb2263f864336"
   },
   "navigationUrls": [
     {
