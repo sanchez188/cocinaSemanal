@@ -80,7 +80,7 @@ export class MenuService {
 
   async loadCurrentWeekMenu(): Promise<void> {
     const currentWeek = this.getCurrentWeek();
-    let menu = await this.weeklyMenuService.getMenu(`menu-${currentWeek}`);
+    let menu = await this.weeklyMenuService.getMenuByWeek(currentWeek);
     if (!menu) {
       menu = this.initializeEmptyWeek(currentWeek);
       await this.saveMenu(menu);
@@ -189,12 +189,12 @@ export class MenuService {
   }
 
   async getMenuForWeek(week: string): Promise<WeeklyMenu | null> {
-    const menu = await this.weeklyMenuService.getMenu(`menu-${week}`);
+    const menu = await this.weeklyMenuService.getMenuByWeek(week);
     return menu ?? null;
   }
 
   async loadWeekMenu(week: string): Promise<void> {
-    let menu = await this.weeklyMenuService.getMenu(`menu-${week}`);
+    let menu = await this.weeklyMenuService.getMenuByWeek(week);
     if (!menu) {
       menu = this.initializeEmptyWeek(week);
       await this.saveMenu(menu);

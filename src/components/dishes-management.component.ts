@@ -3,7 +3,13 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { DishesService } from "../services/dishes.service";
 import { InventoryService } from "../services/inventory.service";
-import { Dish, Ingredient, DishIngredient } from "../models/interfaces";
+import {
+  Dish,
+  Ingredient,
+  DishIngredient,
+  MEAL_CATEGORIES,
+  MealCategory,
+} from "../models/interfaces";
 
 @Component({
   selector: "app-dishes-management",
@@ -54,10 +60,9 @@ import { Dish, Ingredient, DishIngredient } from "../models/interfaces";
               [(ngModel)]="dishForm.category"
               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
             >
-              <option value="desayuno">Desayuno</option>
-              <option value="almuerzo">Almuerzo</option>
-              <option value="cafe">Café</option>
-              <option value="cena">Cena</option>
+              <option *ngFor="let meal of mealCategories" [value]="meal.id">
+                {{ meal.icon }} {{ meal.label }}
+              </option>
             </select>
           </div>
         </div>
@@ -195,10 +200,11 @@ export class DishesManagementComponent implements OnInit {
   inventory: Ingredient[] = [];
   showAddForm = false;
   editingDish: Dish | null = null;
+  mealCategories = MEAL_CATEGORIES;
 
   dishForm = {
     name: "",
-    category: "desayuno" as "desayuno" | "almuerzo" | "cafe" | "cena",
+    category: "desayuno" as MealCategory,
     servings: 1,
     ingredients: [] as DishIngredient[],
   };
@@ -269,7 +275,7 @@ export class DishesManagementComponent implements OnInit {
     this.editingDish = null;
     this.dishForm = {
       name: "",
-      category: "desayuno",
+      category: "desayuno" as MealCategory,
       servings: 1,
       ingredients: [],
     };

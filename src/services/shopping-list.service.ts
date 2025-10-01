@@ -1,36 +1,71 @@
 import { Injectable } from "@angular/core";
-import { CocinaSemanalDB } from "./db.service";
 import { ShoppingList, Purchase } from "../models/interfaces";
+import { SupabaseService } from "./supabase.service";
 
 @Injectable({ providedIn: "root" })
 export class ShoppingListService {
-  constructor(private db: CocinaSemanalDB) {}
+  constructor(private supabaseService: SupabaseService) {}
 
-  async getShoppingList(id: string): Promise<ShoppingList | undefined> {
-    return this.db.shoppingLists.get(id);
+  /**
+   * Obtiene una lista de compras por ID
+   */
+  async getShoppingList(id: string): Promise<ShoppingList | null> {
+    const lists = await this.supabaseService.getShoppingLists();
+    return lists.find((list) => list.id === id) || null;
   }
 
-  async saveShoppingList(list: ShoppingList): Promise<void> {
-    await this.db.shoppingLists.put(list);
+  /**
+   * Obtiene una lista de compras por semana
+   */
+  async getShoppingListByWeek(weekId: string): Promise<ShoppingList | null> {
+    return await this.supabaseService.getShoppingListByWeek(weekId);
   }
 
+  /**
+   * Guarda una lista de compras
+   */
+  async saveShoppingList(list: ShoppingList): Promise<boolean> {
+    return await this.supabaseService.saveShoppingList(list);
+  }
+
+  /**
+   * Obtiene todas las listas de compras
+   */
   async getAllShoppingLists(): Promise<ShoppingList[]> {
-    return this.db.shoppingLists.toArray();
+    return await this.supabaseService.getShoppingLists();
   }
 
-  async deleteShoppingList(id: string): Promise<void> {
-    await this.db.shoppingLists.delete(id);
+  /**
+   * Elimina una lista de compras (implementación futura si es necesaria)
+   */
+  async deleteShoppingList(id: string): Promise<boolean> {
+    // TODO: Implementar eliminación en SupabaseService si es necesario
+    console.warn(
+      "Delete shopping list not implemented yet in Supabase service"
+    );
+    return false;
   }
 
+  /**
+   * Obtiene todas las compras
+   */
   async getPurchases(): Promise<Purchase[]> {
-    return this.db.purchases.toArray();
+    return await this.supabaseService.getPurchases();
   }
 
-  async savePurchase(purchase: Purchase): Promise<void> {
-    await this.db.purchases.put(purchase);
+  /**
+   * Guarda una compra
+   */
+  async savePurchase(purchase: Purchase): Promise<boolean> {
+    return await this.supabaseService.savePurchase(purchase);
   }
 
-  async deletePurchase(id: string): Promise<void> {
-    await this.db.purchases.delete(id);
+  /**
+   * Elimina una compra (implementación futura si es necesaria)
+   */
+  async deletePurchase(id: string): Promise<boolean> {
+    // TODO: Implementar eliminación en SupabaseService si es necesario
+    console.warn("Delete purchase not implemented yet in Supabase service");
+    return false;
   }
 }

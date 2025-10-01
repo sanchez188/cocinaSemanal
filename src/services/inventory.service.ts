@@ -1,12 +1,173 @@
 import { Injectable } from "@angular/core";
 import { signal, WritableSignal } from "@angular/core";
 import { Ingredient } from "../models/interfaces";
-import { CocinaSemanalDB, InventoryItem } from "./db.service";
+import { SupabaseService } from "./supabase.service";
+import { NotificationService } from "./notification.service";
 
 @Injectable({
   providedIn: "root",
 })
 export class InventoryService {
+  private inventorySignal: WritableSignal<Ingredient[]> = signal([]);
+  public inventory = this.inventorySignal;
+
+  constructor(
+    private supabaseService: SupabaseService,
+    private notificationService: NotificationService
+  ) {
+    this.loadInventory();
+  }
+
+  /**
+   * Carga el inventario desde Supabase
+   */
+  private async loadInventory(): Promise<void> {
+    try {
+      const ingredients = await this.supabaseService.getIngredients();
+      this.inventorySignal.set(ingredients);
+    } catch (error) {
+      console.error("Error loading inventory from Supabase:", error);
+      this.inventorySignal.set([]);
+    }
+  }
+
+  /**
+   * Obtiene el inventario actual
+   */
+  getInventory(): Ingredient[] {
+    return this.inventorySignal();
+  }
+
+  /**
+   * Agrega un nuevo ingrediente
+   */
+  async addIngredient(ingredient: Ingredient): Promise<boolean> {
+    try {
+      const success = await this.supabaseService.addIngredient(ingredient);
+      if (success) {
+        await this.loadInventory(); // Recargar desde Supabase
+        this.notificationService.showSuccess(
+          `✅ Ingrediente "${ingredient.name}" agregado correctamente`
+        );
+        return true;
+      } else {
+        this.notificationService.showError(
+          `❌ Error al agregar el ingrediente "${ingredient.name}"`
+        );
+        return false;
+      }
+    } catch (error) {
+      console.error("Error adding ingredient:", error);
+      this.notificationService.showError(
+        `❌ Error al agregar el ingrediente: ${error}`
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Actualiza un ingrediente existente
+   */
+  async updateIngredient(ingredient: Ingredient): Promise<boolean> {
+    try {
+      const success = await this.supabaseService.updateIngredient(ingredient);
+      if (success) {
+        await this.loadInventory(); // Recargar desde Supabase
+        this.notificationService.showSuccess(
+          `✅ Ingrediente "${ingredient.name}" actualizado correctamente`
+        );
+        return true;
+      } else {
+        this.notificationService.showError(
+          `❌ Error al actualizar el ingrediente "${ingredient.name}"`
+        );
+        return false;
+      }
+    } catch (error) {
+      console.error("Error updating ingredient:", error);
+      this.notificationService.showError(
+        `❌ Error al actualizar el ingrediente: ${error}`
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Elimina un ingrediente
+   */
+  async removeIngredient(id: string): Promise<boolean> {
+    try {
+      // Obtener el nombre antes de eliminar para el mensaje
+      const ingredient = this.inventorySignal().find((ing) => ing.id === id);
+      const ingredientName = ingredient?.name || "Ingrediente";
+
+      const success = await this.supabaseService.deleteIngredient(id);
+      if (success) {
+        await this.loadInventory(); // Recargar desde Supabase
+        this.notificationService.showSuccess(
+          `✅ "${ingredientName}" eliminado correctamente`
+        );
+        return true;
+      } else {
+        this.notificationService.showError(
+          `❌ Error al eliminar "${ingredientName}"`
+        );
+        return false;
+      }
+    } catch (error) {
+      console.error("Error removing ingredient:", error);
+      this.notificationService.showError(
+        `❌ Error al eliminar el ingrediente: ${error}`
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Agrega múltiples ingredientes al inventario
+   */
+  async batchAddIngredients(
+    items: Array<{
+      name: string;
+      unit: string;
+      isPackage?: boolean;
+      quantity: number;
+      pricePerUnit?: number;
+      priceTotal?: number;
+      category?: string;
+    }>
+  ): Promise<boolean> {
+    try {
+      const ingredients: Ingredient[] = items.map((item) => ({
+        id:
+          item.name.toLowerCase().replace(/\s+/g, "-") +
+          "-" +
+          Math.floor(Math.random() * 10000),
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        pricePerUnit: item.isPackage ? 0 : item.pricePerUnit || 0,
+        priceTotal: item.isPackage ? item.priceTotal || 0 : undefined,
+        isPackage: !!item.isPackage,
+        category: item.category || "otros",
+      }));
+
+      let allSuccess = true;
+      for (const ingredient of ingredients) {
+        const success = await this.supabaseService.addIngredient(ingredient);
+        if (!success) allSuccess = false;
+      }
+
+      if (allSuccess) {
+        await this.loadInventory();
+      }
+      return allSuccess;
+    } catch (error) {
+      console.error("Error batch adding ingredients:", error);
+      return false;
+    }
+  }
+
   /**
    * Suma todos los ingredientes usados en un menú y los devuelve al inventario.
    */
@@ -21,6 +182,7 @@ export class InventoryService {
         pricePerUnit?: number;
       };
     } = {};
+
     for (const day of Object.keys(menu.days)) {
       for (const dish of menu.days[day]) {
         if (dish.ingredients) {
@@ -38,7 +200,7 @@ export class InventoryService {
         }
       }
     }
-    // Convertir a array y agregar al inventario
+
     const addArray = Object.entries(toAdd).map(([ingredientId, data]) => ({
       ingredientId,
       name: data.name,
@@ -46,16 +208,20 @@ export class InventoryService {
       unit: data.unit,
       pricePerUnit: data.pricePerUnit,
     }));
+
     await this.addToInventory(addArray);
   }
+
   /**
    * Recalcula el inventario descontando los ingredientes usados en el menú semanal.
    */
-  recalculateInventoryFromMenu(menu: { days: { [day: string]: any[] } }): void {
-    // Copia el inventario actual
-    const inventory = [...this.inventorySignal()];
-    // Sumar ingredientes usados en el menú
+  async recalculateInventoryFromMenu(menu: {
+    days: { [day: string]: any[] };
+  }): Promise<void> {
+    const currentInventory = [...this.inventorySignal()];
     const used: { [id: string]: number } = {};
+
+    // Sumar ingredientes usados en el menú
     for (const day of Object.keys(menu.days)) {
       for (const dish of menu.days[day]) {
         if (dish.ingredients) {
@@ -66,332 +232,28 @@ export class InventoryService {
         }
       }
     }
-    // Descontar del inventario
-    for (const item of inventory) {
+
+    // Descontar del inventario y actualizar en Supabase
+    for (const item of currentInventory) {
       if (used[item.id]) {
         item.quantity = Math.max(0, item.quantity - used[item.id]);
+        await this.supabaseService.updateIngredient(item);
       }
     }
-    this.inventorySignal.set([...inventory]);
-    this.saveInventory();
-  }
-  /**
-   * Agrega múltiples ingredientes al inventario, soportando unidad y paquete.
-   */
-  async batchAddIngredients(
-    items: Array<{
-      name: string;
-      unit: string;
-      isPackage?: boolean;
-      quantity: number;
-      pricePerUnit?: number;
-      priceTotal?: number;
-      category?: string;
-    }>
-  ): Promise<void> {
-    try {
-      const ingredients: Ingredient[] = items.map((item) => ({
-        id:
-          item.name.toLowerCase().replace(/\s+/g, "-") +
-          "-" +
-          Math.floor(Math.random() * 10000),
-        name: item.name,
-        quantity: item.quantity,
-        unit: item.unit,
-        pricePerUnit: item.isPackage ? 0 : item.pricePerUnit || 0,
-        priceTotal: item.isPackage ? item.priceTotal || 0 : undefined,
-        isPackage: !!item.isPackage,
-        category: item.category || "otros",
-      }));
 
-      await this.db.inventory.bulkAdd(ingredients);
-      await this.initInventory();
-    } catch (error) {
-      console.error("Error batch adding ingredients:", error);
-    }
-  }
-  private inventorySignal: WritableSignal<Ingredient[]> = signal([]);
-  public inventory = this.inventorySignal;
-
-  constructor(private db: CocinaSemanalDB) {
-    this.initInventory();
-  }
-
-  private async initInventory(): Promise<void> {
-    // Migrar de localStorage si existe y Dexie está vacío
-    const dexieItems = await this.db.inventory.toArray();
-    if (dexieItems.length === 0) {
-      const local = localStorage.getItem("meal-planner-inventory");
-      if (local) {
-        const items: Ingredient[] = JSON.parse(local);
-        for (const item of items) {
-          await this.db.inventory.put(item);
-        }
-        localStorage.removeItem("meal-planner-inventory");
-        this.inventorySignal.set(items);
-        return;
-      }
-    }
-    // Mapear a Ingredient si es necesario
-    this.inventorySignal.set(dexieItems as Ingredient[]);
-    // Si el inventario está vacío, cargar productos iniciales
-    if (this.getInventory().length === 0) {
-      this.batchAddIngredients([
-        {
-          name: "Arroz",
-          unit: "kg",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "cereales",
-        },
-        {
-          name: "Frijoles",
-          unit: "kg",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "cereales",
-        },
-        {
-          name: "Harina",
-          unit: "kg",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "cereales",
-        },
-        {
-          name: "Cereal",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "cereales",
-        },
-        {
-          name: "Leche Nido",
-          unit: "Latas",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "lacteos",
-        },
-        {
-          name: "Leche",
-          unit: "litro",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "lacteos",
-        },
-        {
-          name: "Queso",
-          unit: "kg",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "lacteos",
-        },
-        {
-          name: "Queso crema",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "lacteos",
-        },
-        {
-          name: "Jamón",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "carnes",
-        },
-        {
-          name: "Atún con vegetales",
-          unit: "Latas",
-          quantity: 4,
-          pricePerUnit: 0,
-          category: "carnes",
-        },
-        {
-          name: "Atún azul",
-          unit: "Latas",
-          quantity: 2,
-          pricePerUnit: 0,
-          category: "carnes",
-        },
-        {
-          name: "Zanahoria",
-          unit: "kg",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "verduras",
-        },
-        {
-          name: "Repollo",
-          unit: "unidad",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "verduras",
-        },
-        {
-          name: "Maíz dulce",
-          unit: "Latas",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "verduras",
-        },
-        {
-          name: "Bananos",
-          unit: "unidad",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "frutas",
-        },
-        {
-          name: "Uvas verdes",
-          unit: "kg",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "frutas",
-        },
-        {
-          name: "Tostada integral",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "cereales",
-        },
-        {
-          name: "Royal",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "otros",
-        },
-        {
-          name: "Frijoles molidos Sin picante",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "cereales",
-        },
-        {
-          name: "Frijoles molidos picantes",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "cereales",
-        },
-        {
-          name: "Papel higiénico",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "otros",
-        },
-        {
-          name: "Galleta María",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "galletas",
-        },
-        {
-          name: "Club soda",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "galletas",
-        },
-        {
-          name: "Galleta de Avena",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "galletas",
-        },
-        {
-          name: "Galleta dulce",
-          unit: "paquete",
-          quantity: 1,
-          isPackage: true,
-          priceTotal: 0,
-          category: "galletas",
-        },
-        {
-          name: "Aceite",
-          unit: "litro",
-          quantity: 1,
-          pricePerUnit: 0,
-          category: "liquidos",
-        },
-      ]);
-    }
-  }
-
-  async saveInventory(): Promise<void> {
-    const items = this.inventorySignal();
-    for (const item of items) {
-      await this.db.inventory.put(item);
-    }
-  }
-
-  getInventory(): Ingredient[] {
-    return this.inventorySignal();
-  }
-
-  async addIngredient(ingredient: Ingredient): Promise<void> {
-    const currentInventory = this.inventorySignal();
-    const existingIndex = currentInventory.findIndex(
-      (item) => item.id === ingredient.id
-    );
-    if (existingIndex !== -1) {
-      currentInventory[existingIndex] = ingredient;
-    } else {
-      currentInventory.push(ingredient);
-    }
-    this.inventorySignal.set([...currentInventory]);
-    await this.saveInventory();
-    await this.initInventory();
-  }
-
-  async updateIngredient(ingredient: Ingredient): Promise<void> {
-    const currentInventory = this.inventorySignal();
-    const index = currentInventory.findIndex(
-      (item) => item.id === ingredient.id
-    );
-    if (index !== -1) {
-      currentInventory[index] = ingredient;
-      this.inventorySignal.set([...currentInventory]);
-      await this.saveInventory();
-      await this.initInventory();
-    }
-  }
-
-  async removeIngredient(id: string): Promise<void> {
-    const currentInventory = this.inventorySignal().filter(
-      (item) => item.id !== id
-    );
-    this.inventorySignal.set(currentInventory);
-    await this.saveInventory();
-    await this.initInventory();
+    await this.loadInventory();
   }
 
   /**
    * Consume ingredientes que tengan suficiente stock y devuelve los faltantes.
-   * Devuelve un array con los ids de los ingredientes que no pudieron descontarse.
    */
   async consumeIngredients(
     ingredients: { ingredientId: string; quantity: number }[]
   ): Promise<string[]> {
     const currentInventory = [...this.inventorySignal()];
     const missing: string[] = [];
+    const toUpdate: Ingredient[] = [];
+
     for (const ingredient of ingredients) {
       const inventoryItem = currentInventory.find(
         (item) => item.id === ingredient.ingredientId
@@ -400,14 +262,22 @@ export class InventoryService {
         missing.push(ingredient.ingredientId);
       } else {
         inventoryItem.quantity -= ingredient.quantity;
+        toUpdate.push(inventoryItem);
       }
     }
-    this.inventorySignal.set(currentInventory);
-    await this.saveInventory();
-    await this.initInventory();
+
+    // Actualizar ingredientes en Supabase
+    for (const item of toUpdate) {
+      await this.supabaseService.updateIngredient(item);
+    }
+
+    await this.loadInventory();
     return missing;
   }
 
+  /**
+   * Agrega cantidad a ingredientes existentes
+   */
   async addToInventory(
     ingredients: {
       ingredientId: string;
@@ -418,15 +288,19 @@ export class InventoryService {
     }[]
   ): Promise<void> {
     const currentInventory = [...this.inventorySignal()];
+
     for (const ingredient of ingredients) {
       let inventoryItem = currentInventory.find(
         (item) => item.id === ingredient.ingredientId
       );
+
       if (inventoryItem) {
+        // Actualizar cantidad existente
         inventoryItem.quantity += ingredient.quantity;
+        await this.supabaseService.updateIngredient(inventoryItem);
       } else {
-        // Agregar nuevo producto al inventario si no existe
-        inventoryItem = {
+        // Crear nuevo ingrediente
+        const newIngredient: Ingredient = {
           id: ingredient.ingredientId,
           name: ingredient.name || "Nuevo producto",
           quantity: ingredient.quantity,
@@ -434,11 +308,10 @@ export class InventoryService {
           pricePerUnit: ingredient.pricePerUnit || 0,
           category: "otros",
         };
-        currentInventory.push(inventoryItem);
+        await this.supabaseService.addIngredient(newIngredient);
       }
     }
-    this.inventorySignal.set(currentInventory);
-    await this.saveInventory();
-    await this.initInventory();
+
+    await this.loadInventory();
   }
 }

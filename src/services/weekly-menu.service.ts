@@ -1,23 +1,46 @@
 import { Injectable } from "@angular/core";
-import { CocinaSemanalDB, WeeklyMenu } from "./db.service";
+import { WeeklyMenu } from "../models/interfaces";
+import { SupabaseService } from "./supabase.service";
 
 @Injectable({ providedIn: "root" })
 export class WeeklyMenuService {
-  constructor(private db: CocinaSemanalDB) {}
+  constructor(private supabaseService: SupabaseService) {}
 
-  async getMenu(id: string): Promise<WeeklyMenu | undefined> {
-    return this.db.weeklyMenus.get(id);
+  /**
+   * Obtiene un menú semanal por semana
+   */
+  async getMenuByWeek(week: string): Promise<WeeklyMenu | null> {
+    return await this.supabaseService.getWeeklyMenuByWeek(week);
   }
 
-  async saveMenu(menu: WeeklyMenu): Promise<void> {
-    await this.db.weeklyMenus.put(menu);
+  /**
+   * Obtiene un menú semanal por ID
+   */
+  async getMenu(id: string): Promise<WeeklyMenu | null> {
+    const menus = await this.supabaseService.getWeeklyMenus();
+    return menus.find((menu) => menu.id === id) || null;
   }
 
+  /**
+   * Guarda un menú semanal
+   */
+  async saveMenu(menu: WeeklyMenu): Promise<boolean> {
+    return await this.supabaseService.saveWeeklyMenu(menu);
+  }
+
+  /**
+   * Obtiene todos los menús semanales
+   */
   async getAllMenus(): Promise<WeeklyMenu[]> {
-    return this.db.weeklyMenus.toArray();
+    return await this.supabaseService.getWeeklyMenus();
   }
 
-  async deleteMenu(id: string): Promise<void> {
-    await this.db.weeklyMenus.delete(id);
+  /**
+   * Elimina un menú semanal (implementación futura si es necesaria)
+   */
+  async deleteMenu(id: string): Promise<boolean> {
+    // TODO: Implementar eliminación en SupabaseService si es necesario
+    console.warn("Delete menu not implemented yet in Supabase service");
+    return false;
   }
 }

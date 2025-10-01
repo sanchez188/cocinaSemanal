@@ -4,7 +4,12 @@ import { FormsModule } from "@angular/forms";
 import { MenuService } from "../services/menu.service";
 import { weeklyMenuChanged$ } from "./menus-predefinidos.component";
 import { DishesService } from "../services/dishes.service";
-import { WeeklyMenu, Dish, DAYS_OF_WEEK } from "../models/interfaces";
+import {
+  WeeklyMenu,
+  Dish,
+  DAYS_OF_WEEK,
+  MEAL_CATEGORIES,
+} from "../models/interfaces";
 import { startOfWeek } from "date-fns";
 import { es } from "date-fns/locale";
 import { addDays, format, parseISO } from "date-fns";
@@ -35,8 +40,8 @@ import { addDays, format, parseISO } from "date-fns";
           </div>
           <div class="p-4 grid grid-cols-1 md:grid-cols-4 gap-4">
             <div *ngFor="let meal of meals" class="meal-section">
-              <h4 class="text-sm font-medium text-gray-700 mb-2 capitalize">
-                {{ meal }}
+              <h4 class="text-sm font-medium text-gray-700 mb-2">
+                {{ getMealInfo(meal).icon }} {{ getMealInfo(meal).label }}
               </h4>
               <div class="space-y-2 mb-3">
                 <div
@@ -122,7 +127,7 @@ export class WeeklyMenuComponent implements OnInit {
   menuService = inject(MenuService);
   dishesService = inject(DishesService);
   days = DAYS_OF_WEEK;
-  meals = ["desayuno", "almuerzo", "cafe", "cena"];
+  meals = MEAL_CATEGORIES.map((category) => category.id);
   currentMenu = signal<WeeklyMenu | null>(null);
   dishes = signal<Dish[]>([]);
   selectedDishes: { [key: string]: string } = {};
@@ -218,6 +223,16 @@ export class WeeklyMenuComponent implements OnInit {
     return menu.days[day]
       .filter((dish: Dish) => dish.category === meal)
       .map((dish: Dish) => dish.id);
+  }
+
+  getMealInfo(mealId: string) {
+    return (
+      MEAL_CATEGORIES.find((meal) => meal.id === mealId) || {
+        id: mealId,
+        label: mealId,
+        icon: "🍽️",
+      }
+    );
   }
 
   getDishName(dishId: string): string {

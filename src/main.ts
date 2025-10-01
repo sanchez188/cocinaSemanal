@@ -12,6 +12,7 @@ import { DishesService } from "./services/dishes.service";
 import { InventoryManagementComponent } from "./components/inventory-management.component";
 import { provideServiceWorker } from "@angular/service-worker";
 import { MenusPredefinidosComponent } from "./components/menus-predefinidos.component";
+import { NotificationsComponent } from "./components/notifications.component";
 
 @Component({
   selector: "app-root",
@@ -26,6 +27,7 @@ import { MenusPredefinidosComponent } from "./components/menus-predefinidos.comp
     ShoppingListComponent,
     HistoryComponent,
     MenusPredefinidosComponent,
+    NotificationsComponent,
   ],
   template: `
     <div class="min-h-screen bg-gray-50">
@@ -34,6 +36,7 @@ import { MenusPredefinidosComponent } from "./components/menus-predefinidos.comp
         [activeTab]="activeTab"
         (tabChange)="onTabChange($event)"
       ></app-navigation>
+      <app-notifications></app-notifications>
 
       <main class="container mx-auto max-w-7xl">
         @switch (activeTab) { @case ('predefined') {
@@ -63,109 +66,21 @@ export class App implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.initializeSampleData();
+    // Los datos iniciales ahora se manejan desde Supabase
+    // No es necesario inicializar datos locales
   }
 
   onTabChange(tab: string): void {
     this.activeTab = tab;
   }
 
+  // Los datos iniciales ahora se manejan desde Supabase
+  // Este método ya no es necesario
+  /*
   private initializeSampleData(): void {
-    // Check if we already have data
-    const existingInventory = this.inventoryService.getInventory();
-    const existingDishes = this.dishesService.getDishes();
-
-    if (existingInventory.length === 0) {
-      // Add sample ingredients
-      const sampleIngredients = [
-        {
-          id: "huevos-001",
-          name: "Huevos",
-          quantity: 30,
-          unit: "unidades",
-          pricePerUnit: 0.25,
-          category: "lacteos",
-        },
-        {
-          id: "arroz-001",
-          name: "Arroz",
-          quantity: 2,
-          unit: "kg",
-          pricePerUnit: 1.5,
-          category: "cereales",
-        },
-        {
-          id: "pollo-001",
-          name: "Pechuga de Pollo",
-          quantity: 1.5,
-          unit: "kg",
-          pricePerUnit: 4.5,
-          category: "carnes",
-        },
-        {
-          id: "tomate-001",
-          name: "Tomate",
-          quantity: 1,
-          unit: "kg",
-          pricePerUnit: 2.0,
-          category: "verduras",
-        },
-        {
-          id: "cebolla-001",
-          name: "Cebolla",
-          quantity: 0.5,
-          unit: "kg",
-          pricePerUnit: 1.2,
-          category: "verduras",
-        },
-        {
-          id: "aceite-001",
-          name: "Aceite de Cocina",
-          quantity: 1,
-          unit: "l",
-          pricePerUnit: 2.8,
-          category: "otros",
-        },
-      ];
-
-      sampleIngredients.forEach((ingredient) => {
-        this.inventoryService.addIngredient(ingredient);
-      });
-    }
-
-    if (existingDishes.length === 0) {
-      // Add sample dishes
-      const sampleDishes = [
-        {
-          id: "dish-001",
-          name: "Huevos Revueltos",
-          category: "desayuno" as const,
-          servings: 2,
-          ingredients: [
-            { ingredientId: "huevos-001", quantity: 3 },
-            { ingredientId: "aceite-001", quantity: 0.01 },
-          ],
-        },
-        {
-          id: "dish-002",
-          name: "Arroz con Pollo",
-          category: "almuerzo" as const,
-          servings: 4,
-          ingredients: [
-            { ingredientId: "arroz-001", quantity: 0.25 },
-            { ingredientId: "pollo-001", quantity: 0.4 },
-            { ingredientId: "tomate-001", quantity: 0.2 },
-            { ingredientId: "cebolla-001", quantity: 0.1 },
-            { ingredientId: "aceite-001", quantity: 0.02 },
-          ],
-        },
-      ];
-
-      sampleDishes.forEach((dish) => {
-        this.dishesService.addDish(dish);
-      });
-    }
+    // Datos iniciales movidos a Supabase - ver database_migration_postgresql.sql
   }
+  */
 }
 
 bootstrapApplication(App, {

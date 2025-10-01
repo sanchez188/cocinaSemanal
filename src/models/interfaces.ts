@@ -8,6 +8,17 @@ export const DAYS_OF_WEEK = [
   "sabado",
   "domingo",
 ];
+
+// Categorías de comidas en orden del día
+export const MEAL_CATEGORIES = [
+  { id: "desayuno", label: "Desayuno", icon: "🌅" },
+  { id: "merienda", label: "Merienda", icon: "🥐" },
+  { id: "almuerzo", label: "Almuerzo", icon: "🍽️" },
+  { id: "cafe", label: "Café", icon: "☕" },
+  { id: "cena", label: "Cena", icon: "🌙" },
+] as const;
+
+export type MealCategory = (typeof MEAL_CATEGORIES)[number]["id"];
 export interface Ingredient {
   id: string;
   name: string;
@@ -23,7 +34,7 @@ export interface Dish {
   id: string;
   name: string;
   ingredients: DishIngredient[];
-  category: "desayuno" | "almuerzo" | "cafe" | "cena";
+  category: MealCategory;
   servings: number;
 }
 
